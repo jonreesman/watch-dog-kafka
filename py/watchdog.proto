@@ -1,0 +1,35 @@
+syntax = "proto3";
+import "google/protobuf/timestamp.proto";
+package pb;
+
+option go_package = "../grpc/pb";
+
+message SentimentRequest {
+    string tweet = 1;
+}
+
+message SentimentResponse {
+    float polarity = 1;
+}
+
+service Sentiment {
+    rpc Detect(SentimentRequest) returns (SentimentResponse) {}
+}
+
+message QuoteRequest {
+    string name = 1;
+    string period = 2;
+}
+
+message Quote {
+    google.protobuf.Timestamp time = 1;
+    float price = 2;
+}
+
+message QuoteResponse {
+    repeated Quote quotes = 1;
+}
+
+service Quotes {
+    rpc Detect(QuoteRequest) returns (QuoteResponse) {}
+}
