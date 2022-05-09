@@ -82,7 +82,10 @@ func (s Server) newTickerHandler(c *gin.Context) {
 }
 
 func (s Server) returnTickersHandler(c *gin.Context) {
-	tickers := s.d.ReturnActiveTickers()
+	tickers, err := s.d.ReturnActiveTickers()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, nil)
+	}
 	//Add current prices to tickers
 	type payloadItem struct {
 		Name            string

@@ -78,10 +78,11 @@ func NewManager(t Type) (DBManager, error) {
 		return DBManager{}, err
 	}
 	fmt.Println("Connection established")
-
-	d.createTickerTable()
-	d.createStatementTable()
-	d.createSentimentTable()
+	if _, err := d.ReturnActiveTickers(); err != nil {
+		d.createTickerTable()
+		d.createStatementTable()
+		d.createSentimentTable()
+	}
 	return d, nil
 }
 
@@ -256,10 +257,11 @@ SELECT tickers.ticker_id, tickers.name, tickers.last_scrape_time, ` +
 	`AND tickers.last_scrape_time = sentiments.time_stamp ` +
 	`WHERE active=1 ORDER BY ticker_id`
 
-func (d DBManager) ReturnActiveTickers() (tickers TickerSlice) {
+func (d DBManager) ReturnActiveTickers() (tickers TickerSlice, err error) {
 	rows, err := d.db.Query(activeTickerQuery)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Database Error in ReturnActiveTickers(): %v", err)
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -295,7 +297,7 @@ func (d DBManager) ReturnActiveTickers() (tickers TickerSlice) {
 		})
 		log.Printf("%v: %s\n", id, name)
 	}
-	return tickers
+	return tickers, nil
 }
 
 func (tickers *TickerSlice) appendTicker(t Ticker) {

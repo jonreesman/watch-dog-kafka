@@ -15,7 +15,7 @@ func run(kafkaURL string) error {
 		return err
 	}
 	for {
-		tickers := d.ReturnActiveTickers()
+		tickers, _ := d.ReturnActiveTickers()
 		for _, ticker := range tickers {
 			kafka.ProducerHandler(nil, kafkaURL, kafka.SCRAPE_TOPIC, ticker.Name)
 		}
