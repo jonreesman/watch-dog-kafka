@@ -23,9 +23,18 @@ type Server struct {
 	kafkaURL string
 }
 
+// Creates and returns a server instance to main.
+// This server struct contains an instance of our
+// database manager, the Gin router, and the kafkaURL
+// so that it can produce messages in our Kafk topics.
 func NewServer(kafkaURL string) (*Server, error) {
-	var s Server
-	var err error
+	var (
+		s   Server
+		err error
+	)
+
+	// Generates a database manager on our slave/replica database
+	// since we will only need read access.
 	s.d, err = db.NewManager(db.SLAVE)
 	if err != nil {
 		log.Printf("Error Opening DB connection in NewServer(): %v", err)
@@ -34,6 +43,7 @@ func NewServer(kafkaURL string) (*Server, error) {
 	s.router = gin.Default()
 	s.kafkaURL = kafkaURL
 
+	// Basic routing to generate our REST API handlers.
 	api := s.router.Group("/api")
 	{
 		api.GET("/", func(c *gin.Context) {
@@ -59,10 +69,20 @@ func (s *Server) startServer() error {
 	return err
 }
 
+// This errorResponse handler is deprecated and will be removed.
 func errorResponse(err error) gin.H {
 	return gin.H{"error": err.Error()}
 }
 
+// Recieves a stock ticker name as a string via a POST request
+// then validates whether it is a valid ticker prior to publishing
+// it to be added and scraped on the `add` Kafka topic.
+/*
+	POST Request Form: http://[ip]:[port]/api/tickers/
+	Request Body (JSON): "name": "[ticker name]"
+	Response Form:
+		"success": true
+*/
 func (s Server) newTickerHandler(c *gin.Context) {
 	var input db.Ticker
 	fmt.Println(c.Request.Body)
@@ -81,6 +101,18 @@ func (s Server) newTickerHandler(c *gin.Context) {
 	kafka.ProducerHandler(c, s.kafkaURL, kafka.ADD_TOPIC, input.Name)
 }
 
+// Returns only active tickers when called with a GET request.
+/*
+	GET Request Form: http://[ip]:[port]/api/tickers/
+	Response Form:
+		ticker: {
+			Name: [name],
+			LastScrapeTime: [lastScrapeTime (UNIX)],
+			HourlySentiment: [current hourly senitment],
+			Id: [ticker ID from database],
+			Quote: [current stock price]
+		}
+*/
 func (s Server) returnTickersHandler(c *gin.Context) {
 	tickers, err := s.d.ReturnActiveTickers()
 	if err != nil {
@@ -110,6 +142,15 @@ func (s Server) returnTickersHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, payload)
 }
 
+// Returns all the data contained for a stock ticker specified by ID
+// as a param via GET request. It will gather all tweets, hourly sentiment
+// averages, and quotes for a given timespan and return it.
+/*
+	Request Form: http://[ip]:[port]/api/tickers/{id}/time/{timespan}
+	Valid `timespans`: [`day`, `week`, `month`, `2month`]
+	Response Form:
+		TO DO
+*/
 func (s Server) returnTickerHandler(c *gin.Context) {
 	var (
 		id       int
@@ -184,6 +225,14 @@ func (s Server) returnTickerHandler(c *gin.Context) {
 
 }
 
+// Deactivates the ticker for hourly scraping and display
+// by generating a `DELETE` message on the `delete` Kafka topic.
+/*
+	DELETE Request Form: http://[ip]:[port]/api/tickers/{id}
+	Response Form:
+		"success": true
+		"error": "Invalid id."
+*/
 func (s Server) deactivateTickerHandler(c *gin.Context) {
 	var (
 		id  int
