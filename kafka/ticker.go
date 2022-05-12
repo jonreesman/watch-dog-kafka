@@ -27,22 +27,26 @@ type ticker struct {
 	Active          int
 }
 
-//Defines a statement object. Primarily refers to a tweet,
-//but it leaves room for the addition of other sources.
+// Defines a statement object. Primarily refers to a tweet,
+// but it leaves room for the addition of other sources.
 
-//Defines a stock quote and the time that quote was taken.
-//Also is frequently used to sentiments over time since
-//the variable types are identical.
+// Defines a stock quote and the time that quote was taken.
+// Also is frequently used to sentiments over time since
+// the variable types are identical.
 type intervalQuote struct {
 	TimeStamp    int64
 	CurrentPrice float64
 }
 
-func (t *ticker) hourlyWipe() {
+// DEPRECATED. Wipes our ticker object between
+// scrapes. DELETE.
+/*func (t *ticker) hourlyWipe() {
 	t.numTweets = 0
 	t.Tweets = nil
-}
+}*/
 
+// Handles pushing all relevant ticker information to the database concurrently.
+// It will push all tweets and hourly sentiments to the DB and update the lastScrapeTime.
 func (t ticker) pushToDb(d db.DBManager) {
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -56,15 +60,17 @@ func (t ticker) pushToDb(d db.DBManager) {
 	wg.Wait()
 }
 
+// Given lastScrapeTime, will scrape Twitter for all tweets
+// back to that time, then compute the hourly sentiment.
 func (t *ticker) scrape(lastScrapeTime int64) {
-	//log.Printf(("Interesting"))
 	t.Tweets = append(t.Tweets, twitter.TwitterScrape(t.Name, lastScrapeTime)...)
-	//log.Printf("Hmm")
 	t.numTweets = len(t.Tweets)
 	t.LastScrapeTime = time.Now()
 	t.computeHourlySentiment()
 }
 
+// Utilizes GRPC to communicate with our Python ancillary that performs
+// sentiment analysis on the tweets for a given ticker.
 func (t *ticker) computeHourlySentiment() {
 	var total float64
 	addr := "localhost:9999"

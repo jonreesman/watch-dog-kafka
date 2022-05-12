@@ -10,6 +10,11 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
+// Middleware that creates a Kafka Writer and writes the given
+// message (a stock/crypto ticker here) to the given topic.
+// Has no return, but given the context, will return an HTTP response.
+// This method also doubles as a non-middleware Kafka producer, so it will
+// accept a `nil` context and write the given message to the topic anyways.
 func ProducerHandler(c *gin.Context, kafkaURL, topic, ticker string) {
 	kafkaWriter := getKafkaWriter(kafkaURL, topic)
 	defer kafkaWriter.Close()
@@ -20,7 +25,7 @@ func ProducerHandler(c *gin.Context, kafkaURL, topic, ticker string) {
 
 	if c == nil {
 		if err := kafkaWriter.WriteMessages(context.Background(), msg); err != nil {
-			log.Printf("ProducerHandler failed to write message for ticker %s: %v\n",ticker, err)
+			log.Printf("ProducerHandler failed to write message for ticker %s: %v\n", ticker, err)
 		}
 		return
 	}
@@ -33,6 +38,7 @@ func ProducerHandler(c *gin.Context, kafkaURL, topic, ticker string) {
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
+// Grabs a Kafka writer for the given topic.
 func getKafkaWriter(kafkaURL, topic string) *kafka.Writer {
 	return &kafka.Writer{
 		Addr:     kafka.TCP(kafkaURL),

@@ -14,7 +14,7 @@ from watchdog_pb2 import QuoteResponse
 from watchdog_pb2_grpc import SentimentServicer, add_SentimentServicer_to_server
 from watchdog_pb2_grpc import QuotesServicer, add_QuotesServicer_to_server
 
-
+# Given a string, `tweet`, returns the sentiment analysis.
 def find_sentiment(tweet):
     blob = TextBlob(tweet)
     return blob.sentiment.polarity
@@ -35,10 +35,10 @@ class QuotesServer(QuotesServicer):
         data = data.drop(['High','Low','Close','Adj Close', 'Volume'], axis=1)
         resp = QuoteResponse()
         for tuple in data.itertuples():
-            posixTime = tuple[0].timestamp()
-            seconds = math.floor(posixTime)
-            protoTime = Timestamp(seconds=seconds)
-            resp.quotes.add(time=protoTime, price=tuple[1])
+            posix_time = tuple[0].timestamp()
+            seconds = math.floor(posix_time)
+            proto_time = Timestamp(seconds=seconds)
+            resp.quotes.add(time=proto_time, price=tuple[1])
         return resp
 
 if __name__ == "__main__":

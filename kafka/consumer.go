@@ -11,12 +11,15 @@ import (
 	kafka "github.com/segmentio/kafka-go"
 )
 
+// Defines the Kafka topics for the project
+// across the package.
 const (
 	ADD_TOPIC    = "add"
 	DELETE_TOPIC = "delete"
 	SCRAPE_TOPIC = "scrape"
 )
 
+// Returns a Kafka reader for a specific topic and group
 func getKafkaReader(kafkaURL, topic, groupID string) *kafka.Reader {
 	brokers := strings.Split(kafkaURL, ",")
 	return kafka.NewReader(kafka.ReaderConfig{
@@ -28,6 +31,9 @@ func getKafkaReader(kafkaURL, topic, groupID string) *kafka.Reader {
 	})
 }
 
+// Defines our consumer goroutine. Retrieves a Kafka Reader for its topic,
+// grabs a connection to the master database, and listes to the topic
+// for events. It can handle the logic for deletions, additions, and scrapes.
 func SpawnConsumer(kafkaURL string, topic string, groupID string) error {
 	reader := getKafkaReader(kafkaURL, topic, groupID)
 	d, err := db.NewManager(db.MASTER)
@@ -48,29 +54,32 @@ func SpawnConsumer(kafkaURL string, topic string, groupID string) error {
 			Name: string(m.Value),
 		}
 
+		// If the consumer is a `delete` consumer, it'll exclusively
+		// execute this logic. It simply issues a MySQL query to
+		// set active to 0 so that no scraping occurs for that ticker.
 		if m.Topic == DELETE_TOPIC {
-			/*id, err := d.RetrieveTickerIDByName(t.Name)
-			if err != nil {
-				log.Printf("Consumer: Failed RetrieveTickerIDByName for ticker %s: %v", t.Name, err)
-				continue
-			}*/
 			id, err := strconv.Atoi(t.Name)
 			if err != nil {
 				log.Printf("Consumer: Failed to convert id from string to int: %v", err)
 				continue
 			}
-			err = d.DeactivateTicker(id)
-			if err != nil {
+			if err := d.DeactivateTicker(id); err != nil {
 				log.Printf("Consumer: Failed to DeactivateTicker %s with id %d: %v", t.Name, id, err)
 			}
 			continue
 		}
 
+		// Add ticker conveniently will check for the ticker in the DB first,
+		// before trying to add it. So from here forward, the logic is identical
+		// for both `scrape` and `add`
 		t.Id, err = d.AddTicker(t.Name)
 		if err != nil {
 			log.Printf("SpawnWorker(); Could not find/add ticker: %v", err)
 		}
 
+		// Grabs the last time the stock was scraped so that we know
+		// how far back we must scrape twitter. If none is found (eg. its
+		// NULL in the database), we set it to 0 to do an initial scrape.
 		lastScrapeTime, err := d.RetrieveTickerLastScrapeTime(t.Name)
 		if err != nil {
 			log.Printf("Error retrieiving lastScrapeTime for %s: %v", t.Name, err)
