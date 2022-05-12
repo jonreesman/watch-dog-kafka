@@ -1,5 +1,5 @@
 # watch-dog - Kafka Edition
-The purpose of this project is to scrape twitter, reddit, and various news sources on an hourly basis in order to provide the user with a regular sentiment analysis for their chosen stock/crypto tickers. It's React Native frontend component can currently be found [here](https://github.com/jonreesman/watch-dog-react) which is where the lionshare of my attention presently is focused.
+The purpose of this project is to scrape twitter, reddit, and various news sources on an hourly basis in order to provide the user with a regular sentiment analysis for their chosen stock/crypto tickers. It's React Native frontend component can currently be found [here](https://github.com/jonreesman/watch-dog-react). The original, non event-driven approach, is located [here.](https://github.com/jonreesman/watch-dog)
 
 ## Set-Up
 1. Use `docker-compose.yml` to "compose up" the Kafka, Zookeeper, and MySQL main and replica databases.
