@@ -11,6 +11,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/jonreesman/wdk/db"
 	"github.com/jonreesman/wdk/kafka"
@@ -41,6 +42,7 @@ func NewServer(kafkaURL string) (*Server, error) {
 		return nil, err
 	}
 	s.router = gin.Default()
+	s.router.Use(cors.Default())
 	s.kafkaURL = kafkaURL
 
 	// Basic routing to generate our REST API handlers.

@@ -11,7 +11,7 @@ import (
 
 const (
 	KAFKA_CONSUMERS_EA = 10
-	SLEEP_INTERVAL     = 3600
+	SLEEP_INTERVAL     = 3600 * time.Second
 )
 
 // Run is our central loop that signals hourly to scrape for
@@ -31,6 +31,7 @@ func run(kafkaURL string) error {
 	for {
 		tickers, _ := d.ReturnActiveTickers()
 		for _, ticker := range tickers {
+			log.Printf("Ticker %s", ticker.Name)
 			kafka.ProducerHandler(nil, kafkaURL, kafka.SCRAPE_TOPIC, ticker.Name)
 		}
 		time.Sleep(SLEEP_INTERVAL)
@@ -58,9 +59,7 @@ func main() {
 
 	// Fails and aborts if the Gin server fails to launch,
 	// since there is no reason to run without the API.
-	if err := s.startServer(); err != nil {
-		log.Fatal(err)
-	}
+	go s.startServer()
 
 	// Launches the hourly loop that results in a regular
 	// scraping for each stock ticker/crypto. If this fails,
