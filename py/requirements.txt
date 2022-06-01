@@ -1,0 +1,5 @@
+grpcio==1.44.0
+protobuf==4.21.1
+pydantic==1.9.0
+textblob==0.17.1
+yfinance==0.1.70

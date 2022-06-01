@@ -68,6 +68,32 @@ services:
       - mysql-master
     platform: linux/amd64
 
+  wdk:
+    image: wdk:latest
+    container_name: wdk
+    environment:
+      kafkaURL: kafka:9093
+      groupID: demo
+      GRPC_HOST: wdk-server:9999
+      DB_MASTER: mysql-master:3306
+      DB_SLAVE: mysql-slave:3306
+      DB_USER: root
+      DB_PWD: password
+      DB_NAME: app
+    ports: 
+      - 3100:3100
+    depends_on:
+      - wdk-server
+    platform: linux/arm64
+
+  wdk-server:
+    image: wdk-server:latest
+    container_name: wdk-server
+    ports: 
+      - 9999:9999
+    platform: linux/arm64
+
+
 networks:
   kafka-net:
 
