@@ -178,12 +178,17 @@ func (s Server) returnTickerHandler(c *gin.Context) {
 	switch interval {
 	case "day":
 		period = "1d"
+		fromTime = time.Now().Unix() - 86400
 	case "week":
 		period = "7d"
+		fromTime = time.Now().Unix() - 86400*7
 	case "month":
 		period = "30d"
+		fromTime = time.Now().Unix() - 86400*30
 	case "2month":
 		period = "60d"
+		fromTime = time.Now().Unix() - 86400*60
+
 	}
 
 	if tick, err = s.d.RetrieveTickerById(id); err != nil {
