@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/jonreesman/wdk/db"
-	"github.com/jonreesman/wdk/kafka"
+	"github.com/jonreesman/watch-dog-kafka/db"
+	"github.com/jonreesman/watch-dog-kafka/kafka"
 )
 
 const (
@@ -41,6 +41,7 @@ func run(kafkaURL string) error {
 func main() {
 	kafkaURL := os.Getenv("kafkaURL")
 	groupID := os.Getenv("groupID")
+	grpcHost := os.Getenv("GRPC_HOST")
 
 	// Utilizes goroutines to create concurrent Kafka Consumers.
 	for i := 0; i < KAFKA_CONSUMERS_EA; i++ {
@@ -52,7 +53,7 @@ func main() {
 	// Grabs an instance of our Gin server, passing the kafkaURL.
 	// Gin server requires the KafkaURL so that it can create
 	// its own Kafka producers.
-	s, err := NewServer(kafkaURL)
+	s, err := NewServer(kafkaURL, grpcHost)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/jonreesman/wdk/twitter"
+	"github.com/jonreesman/watch-dog-kafka/twitter"
 )
 
 // Defines our Database Manager that controls
@@ -23,7 +23,7 @@ type DBManager struct {
 	dbName string
 	dbUser string
 	dbPwd  string
-	dbPort string
+	dbURL  string
 	URI    string
 }
 
@@ -64,12 +64,11 @@ func NewManager(t Type) (DBManager, error) {
 	d.dbName = os.Getenv("DB_NAME")
 
 	if t == MASTER {
-		d.dbPort = os.Getenv("DB_MASTER_PORT")
+		d.dbURL = os.Getenv("DB_MASTER")
 	} else {
-		d.dbPort = os.Getenv("DB_SLAVE_PORT")
+		d.dbURL = os.Getenv("DB_SLAVE")
 	}
-
-	d.URI = fmt.Sprintf("%s:%s@tcp(127.0.0.1:%s)/%s", d.dbUser, d.dbPwd, d.dbPort, d.dbName)
+	d.URI = fmt.Sprintf("%s:%s@tcp(%s)/%s", d.dbUser, d.dbPwd, d.dbURL, d.dbName)
 	d.db, err = sql.Open("mysql", d.URI)
 	if err != nil {
 		log.Printf("Failed to open connection in DB NewManager(): %v", err)

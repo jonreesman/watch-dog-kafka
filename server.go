@@ -13,14 +13,15 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/jonreesman/wdk/db"
-	"github.com/jonreesman/wdk/kafka"
-	"github.com/jonreesman/wdk/pb"
+	"github.com/jonreesman/watch-dog-kafka/db"
+	"github.com/jonreesman/watch-dog-kafka/kafka"
+	"github.com/jonreesman/watch-dog-kafka/pb"
 )
 
 type Server struct {
 	d        db.DBManager
 	router   *gin.Engine
+	grpcHost string
 	kafkaURL string
 }
 
@@ -28,7 +29,7 @@ type Server struct {
 // This server struct contains an instance of our
 // database manager, the Gin router, and the kafkaURL
 // so that it can produce messages in our Kafk topics.
-func NewServer(kafkaURL string) (*Server, error) {
+func NewServer(kafkaURL, grpcHost string) (*Server, error) {
 	var (
 		s   Server
 		err error
@@ -44,6 +45,7 @@ func NewServer(kafkaURL string) (*Server, error) {
 	s.router = gin.Default()
 	s.router.Use(cors.Default())
 	s.kafkaURL = kafkaURL
+	s.grpcHost = grpcHost
 
 	// Basic routing to generate our REST API handlers.
 	api := s.router.Group("/api")
@@ -197,8 +199,7 @@ func (s Server) returnTickerHandler(c *gin.Context) {
 	}
 
 	sentimentHistory := s.d.ReturnSentimentHistory(id, fromTime)
-	addr := "localhost:9999"
-	conn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.Dial(s.grpcHost, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		log.Printf("returnTickerHandler(): GRPC Dial Error %v", err)
 		errorResponse(err)
