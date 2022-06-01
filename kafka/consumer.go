@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jonreesman/wdk/db"
+	"github.com/jonreesman/watch-dog-kafka/db"
 	kafka "github.com/segmentio/kafka-go"
 )
 

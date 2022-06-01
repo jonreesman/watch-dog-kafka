@@ -2,15 +2,16 @@ package kafka
 
 import (
 	"context"
+	"os"
 
 	"fmt"
 	"log"
 	"sync"
 	"time"
 
-	"github.com/jonreesman/wdk/db"
-	"github.com/jonreesman/wdk/pb"
-	"github.com/jonreesman/wdk/twitter"
+	"github.com/jonreesman/watch-dog-kafka/db"
+	"github.com/jonreesman/watch-dog-kafka/pb"
+	"github.com/jonreesman/watch-dog-kafka/twitter"
 	"google.golang.org/grpc"
 )
 
@@ -73,7 +74,7 @@ func (t *ticker) scrape(lastScrapeTime int64) {
 // sentiment analysis on the tweets for a given ticker.
 func (t *ticker) computeHourlySentiment() {
 	var total float64
-	addr := "localhost:9999"
+	addr := os.Getenv("GRPC_HOST")
 	conn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		log.Printf("computeHourlySentiment(): Failed to dial GRPC.")
