@@ -129,6 +129,9 @@ INSERT INTO tickers(name, active, last_scrape_time) ` +
 // to the ticker if successful, else returns 0 and an error.
 // Id 0 is reserved by the program for error purposes.
 func (d DBManager) AddTicker(name string) (int, error) {
+	if name == "" {
+		return 0, errors.New("ticker name is blank")
+	}
 	if t, err := d.RetrieveTickerByName(name); err == nil {
 		if t.Active == 1 {
 			return t.Id, errors.New("ticker already exists and is active")
@@ -413,7 +416,8 @@ SELECT time_stamp, expression, url, polarity, tweet_id ` +
 func (d DBManager) ReturnAllStatements(id int, fromTime int64) []twitter.Statement {
 	rows, err := d.db.Query(returnAllStatementsQuery, id)
 	if err != nil {
-		log.Print("Error returning senitment history: ", err)
+		log.Print("Error returning sentiment history: ", err)
+		return nil
 	}
 
 	var (
@@ -423,7 +427,7 @@ func (d DBManager) ReturnAllStatements(id int, fromTime int64) []twitter.Stateme
 
 	for rows.Next() {
 		if rows.Err() != nil {
-			log.Print("Found no rows.")
+			log.Printf("ReturnAllStatements(): %v", rows.Err())
 		}
 		if err := rows.Scan(&st.TimeStamp, &st.Expression, &st.PermanentURL, &st.Polarity, &st.ID); err != nil {
 			log.Printf("ReturnAllStatements(): Error in rows.Scan() for ticker %d: %v", id, err)
@@ -434,6 +438,30 @@ func (d DBManager) ReturnAllStatements(id int, fromTime int64) []twitter.Stateme
 		returnPackage = append(returnPackage, st)
 	}
 	return returnPackage
+}
+
+const checkTickerExistsQuery = `
+SELECT ticker_id FROM tickers where name=?`
+
+func (d DBManager) CheckTickerExists(ticker string) bool {
+	rows, err := d.db.Query(checkTickerExistsQuery, ticker)
+	if err != nil {
+		log.Printf("Error checking if ticker %s exists: %v", ticker, err)
+		return false
+	}
+	var id int
+	for rows.Next() {
+		if rows.Err() != nil {
+			log.Printf("Error checking if ticker %s exists: %v", ticker, rows.Err())
+		}
+		if err := rows.Scan(&id); err != nil {
+			log.Printf("Error checking if ticker %s exists: %v", ticker, err)
+		}
+	}
+	if id > 0 {
+		return true
+	}
+	return false
 }
 
 const deactivateTickerQuery = `
