@@ -61,9 +61,12 @@ func NewServer(kafkaURL, grpcHost string) (*Server, error) {
 			})
 		})
 		api.GET("/tickers", s.returnTickersHandler)
-		api.POST("/tickers/", s.newTickerHandler)
 		api.GET("/tickers/:id/time/:interval", s.returnTickerHandler)
-		api.DELETE("/tickers/:id", s.deactivateTickerHandler)
+	}
+	auth := s.router.Group("/auth")
+	{
+		auth.POST("/tickers/", s.newTickerHandler)
+		auth.DELETE("/tickers/:id", s.deactivateTickerHandler)
 	}
 	return &s, nil
 }
@@ -82,7 +85,7 @@ func errorResponse(err error) gin.H {
 // then validates whether it is a valid ticker prior to publishing
 // it to be added and scraped on the `add` Kafka topic.
 /*
-	POST Request Form: http://[ip]:[port]/api/tickers/
+	POST Request Form: http://[ip]:[port]/auth/tickers/
 	Request Body (JSON): "name": "[ticker name]"
 	Response Form:
 		"success": true
@@ -236,7 +239,7 @@ func (s Server) returnTickerHandler(c *gin.Context) {
 // Deactivates the ticker for hourly scraping and display
 // by generating a `DELETE` message on the `delete` Kafka topic.
 /*
-	DELETE Request Form: http://[ip]:[port]/api/tickers/{id}
+	DELETE Request Form: http://[ip]:[port]/auth/tickers/{id}
 	Response Form:
 		"success": true
 		"error": "Invalid id."
