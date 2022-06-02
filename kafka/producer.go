@@ -16,6 +16,9 @@ import (
 // This method also doubles as a non-middleware Kafka producer, so it will
 // accept a `nil` context and write the given message to the topic anyways.
 func ProducerHandler(c *gin.Context, kafkaURL, topic, ticker string) {
+	if ticker == "" {
+		return
+	}
 	kafkaWriter := getKafkaWriter(kafkaURL, topic)
 	defer kafkaWriter.Close()
 	msg := kafka.Message{

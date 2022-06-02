@@ -46,10 +46,14 @@ func SpawnConsumer(kafkaURL string, topic string, groupID string) error {
 	for {
 		m, err := reader.ReadMessage(context.Background())
 		if err != nil {
-			log.Printf("Failed to read message")
+			log.Printf("Consumer failed to read message with error: %v", err)
 		}
 		fmt.Printf("message at topic:%v partition:%v offset:%v	%s = %s\n", m.Topic, m.Partition, m.Offset, string(m.Key), string(m.Value))
 		fmt.Printf("%s", string(m.Value))
+		if m.Value == nil {
+			log.Printf("message value nil. continuing")
+			continue
+		}
 		t := ticker{
 			Name: string(m.Value),
 		}
@@ -69,12 +73,18 @@ func SpawnConsumer(kafkaURL string, topic string, groupID string) error {
 			continue
 		}
 
-		// Add ticker conveniently will check for the ticker in the DB first,
-		// before trying to add it. So from here forward, the logic is identical
-		// for both `scrape` and `add`
-		t.Id, err = d.AddTicker(t.Name)
-		if err != nil {
-			log.Printf("SpawnWorker(); Could not find/add ticker: %v", err)
+		if m.Topic == ADD_TOPIC {
+			t.Id, err = d.AddTicker(t.Name)
+			if err != nil {
+				log.Printf("SpawnWorker(); Could not add ticker with name %s: %v", t.Name, err)
+			}
+		}
+
+		if m.Topic == SCRAPE_TOPIC {
+			t.Id, err = d.RetrieveTickerIDByName(t.Name)
+			if err != nil {
+				log.Printf("SpawnWorker(); Could not find ticker with name %s: %v", t.Name, err)
+			}
 		}
 
 		// Grabs the last time the stock was scraped so that we know
