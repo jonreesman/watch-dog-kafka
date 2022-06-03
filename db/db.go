@@ -353,7 +353,7 @@ SELECT ticker_id, name, last_scrape_time FROM tickers ` +
 func (d DBManager) RetrieveTickerById(tickerId int) (Ticker, error) {
 	rows, err := d.db.Query(retrieveTickerByIdQuery, tickerId)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("RetrieveTickerById(): Error querying the DB: %v", err)
 	}
 	defer rows.Close()
 	var (
