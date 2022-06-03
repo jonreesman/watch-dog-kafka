@@ -25,11 +25,10 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "9092:9093"
+      - "9093:9093"
     volumes:
       - kafka_data:/confluentinc
     environment:
-      KAFKA_HOST_URL: kafka
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2182"
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
@@ -38,6 +37,7 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
     networks:
       - kafka-net
+    restart: on-failure
     platform: linux/amd64
 
   mysql-master:
@@ -77,7 +77,7 @@ services:
     image: wdk:latest
     container_name: wdk
     environment:
-      kafkaURL: kafka:9093
+      kafkaURL: wdk-kafka-1:9093
       groupID: demo
       GRPC_HOST: wdk-server:9999
       DB_MASTER: mysql-master:3306
