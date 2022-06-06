@@ -54,10 +54,15 @@ func (t ticker) pushToDb(d db.DBManager) {
 	go d.AddSentiment(&wg, t.LastScrapeTime.Unix(), t.Id, t.HourlySentiment)
 	wg.Add(1)
 	go d.UpdateTicker(&wg, t.Id, t.LastScrapeTime)
+	tx := d.BeginTx()
 	for _, tw := range t.Tweets {
 		fmt.Println("added statement to DB for:", tw.Subject)
-		d.AddStatement(t.Id, tw.Expression, tw.TimeStamp, tw.Polarity, tw.PermanentURL, tw.ID)
+		d.AddStatements(tx, t.Id, tw.Expression, tw.TimeStamp, tw.Polarity, tw.PermanentURL, tw.ID)
 	}
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error pushing %s tweets to DB: %v", t.Name, err)
+	}
+
 	wg.Wait()
 }
 

@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -17,7 +18,7 @@ import (
 // Defines our Database Manager that controls
 // how an external package would implement this
 // package. It contains our DB connection as well
-// as inportant database information.
+// as important database information.
 type DBManager struct {
 	db     *sql.DB
 	dbName string
@@ -190,6 +191,29 @@ func (d DBManager) AddStatement(tickerId int, expression string, timeStamp int64
 	)
 	if err != nil {
 		log.Print("Error in addStatement", err)
+	}
+}
+
+func (d DBManager) BeginTx() *sql.Tx {
+	t, err := d.db.BeginTx(context.Background(), nil)
+	if err != nil {
+		log.Printf("Error beginning transaction: %v", err)
+	}
+	return t
+}
+
+// Adds a single tweet to the statement table of the database.
+func (d DBManager) AddStatements(t *sql.Tx, tickerId int, expression string, timeStamp int64, polarity float64, url string, tweet_id uint64) {
+	_, err := t.Exec(addStatementQuery,
+		tickerId,
+		expression,
+		timeStamp,
+		float32(polarity),
+		url,
+		tweet_id,
+	)
+	if err != nil {
+		log.Print("Error in addStatements(): ", err)
 	}
 }
 
@@ -462,6 +486,33 @@ func (d DBManager) CheckTickerExists(ticker string) bool {
 		return true
 	}
 	return false
+}
+
+const retrieveOldestTweetTimestampQuery = `
+SELECT time_stamp FROM statements WHERE ticker_id=? ORDER BY time_stamp ASC LIMIT 1
+`
+
+// Retrieves the last scrape time for a ticker.
+func (d DBManager) RetrieveOldestTweetTimestamp(tickerName string) (int64, error) {
+	rows, err := d.db.Query(retrieveOldestTweetTimestampQuery, tickerName)
+	if err != nil {
+		log.Print(err)
+	}
+	defer rows.Close()
+	var (
+		oldestTweetTimestamp sql.NullInt64
+	)
+	for rows.Next() {
+		if err := rows.Scan(&oldestTweetTimestamp); err != nil {
+			log.Print(err)
+			return 0, errors.New("Error in retrieveOldestTweetTimestamp(): %v", err)
+		}
+	}
+	if oldestTweetTimestamp.Valid {
+		return oldestTweetTimestamp.Int64, nil
+	} else {
+		return 0, errors.New("Error in retrieveOldestTweetTimestamp: int64 value retrieved not valid.")
+	}
 }
 
 const deactivateTickerQuery = `
