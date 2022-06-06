@@ -505,7 +505,7 @@ func (d DBManager) RetrieveOldestTweetTimestamp(tickerName string) (int64, error
 	for rows.Next() {
 		if err := rows.Scan(&oldestTweetTimestamp); err != nil {
 			log.Print(err)
-			return 0, errors.New("Error in retrieveOldestTweetTimestamp(): %v", err)
+			return 0, errors.New("Error in retrieveOldestTweetTimestamp():" + err.Error())
 		}
 	}
 	if oldestTweetTimestamp.Valid {
