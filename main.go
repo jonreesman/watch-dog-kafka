@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/jonreesman/watch-dog-kafka/db"
@@ -10,8 +11,11 @@ import (
 )
 
 const (
-	KAFKA_CONSUMERS_EA = 10
-	SLEEP_INTERVAL     = 3600 * time.Second
+	SLEEP_INTERVAL = 3600 * time.Second
+)
+
+var (
+	CONSUMERS_PER_TOPIC int
 )
 
 // Run is our central loop that signals hourly to scrape for
@@ -42,13 +46,19 @@ func main() {
 	kafkaURL := os.Getenv("kafkaURL")
 	groupID := os.Getenv("groupID")
 	grpcHost := os.Getenv("GRPC_HOST")
+	_, exists := os.LookupEnv("CONSUMERS_PER_TOPIC")
+	CONSUMERS_PER_TOPIC = 10
+	if exists == true {
+		var err error
+		CONSUMERS_PER_TOPIC, err = strconv.Atoi(os.Getenv("CONSUMERS_PER_TOPIC"))
+		if err != nil {
+			log.Printf("Failed to read CONSUMERS_PER_TOPIC env variable. Defaulting to 10.")
+		}
+	}
+	log.Printf("Spawning %d consumers per topic", CONSUMERS_PER_TOPIC)
 
 	// Utilizes goroutines to create concurrent Kafka Consumers.
-	for i := 0; i < KAFKA_CONSUMERS_EA; i++ {
-		go kafka.SpawnConsumer(kafkaURL, kafka.ADD_TOPIC, groupID)
-		go kafka.SpawnConsumer(kafkaURL, kafka.DELETE_TOPIC, groupID)
-		go kafka.SpawnConsumer(kafkaURL, kafka.SCRAPE_TOPIC, groupID)
-	}
+	go consumerFactory(kafkaURL, groupID)
 
 	// Grabs an instance of our Gin server, passing the kafkaURL.
 	// Gin server requires the KafkaURL so that it can create
@@ -67,5 +77,30 @@ func main() {
 	// we will also abort.
 	if err := run(kafkaURL); err != nil {
 		log.Fatal(err)
+	}
+}
+
+// Utilizes goroutines to create concurrent Kafka Consumers.
+func consumerFactory(kafkaURL string, groupID string) {
+	addChannel := make(chan int, CONSUMERS_PER_TOPIC)
+	deleteChannel := make(chan int, CONSUMERS_PER_TOPIC)
+	scrapeChannel := make(chan int, CONSUMERS_PER_TOPIC)
+	go consumerManager(addChannel, kafkaURL, kafka.ADD_TOPIC, groupID)
+	go consumerManager(deleteChannel, kafkaURL, kafka.DELETE_TOPIC, groupID)
+	go consumerManager(scrapeChannel, kafkaURL, kafka.SCRAPE_TOPIC, groupID)
+}
+
+// Utilizes channels to maintain a set number of consumers per topic.
+// Will wait 5 minutes prior to respawning a consumer.
+func consumerManager(ch chan int, kafkaURL string, topic string, groupID string) {
+	for i := 0; i < CONSUMERS_PER_TOPIC; i++ {
+		go kafka.SpawnConsumer(ch, kafkaURL, topic, groupID)
+	}
+	for {
+		<-ch
+		go func() {
+			time.Sleep(time.Second * time.Duration(3000))
+			go kafka.SpawnConsumer(ch, kafkaURL, topic, groupID)
+		}()
 	}
 }

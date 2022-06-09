@@ -6,7 +6,6 @@ import (
 	"log"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/jonreesman/watch-dog-kafka/db"
 	kafka "github.com/segmentio/kafka-go"
@@ -35,7 +34,7 @@ func getKafkaReader(kafkaURL, topic, groupID string) *kafka.Reader {
 // Defines our consumer goroutine. Retrieves a Kafka Reader for its topic,
 // grabs a connection to the master database, and listes to the topic
 // for events. It can handle the logic for deletions, additions, and scrapes.
-func SpawnConsumer(kafkaURL string, topic string, groupID string) error {
+func SpawnConsumer(ch chan int, kafkaURL string, topic string, groupID string) error {
 	log.Printf("Starting consumer with kafkaURL %s", kafkaURL)
 	reader := getKafkaReader(kafkaURL, topic, groupID)
 	d, err := db.NewManager(db.MASTER)
@@ -48,13 +47,9 @@ func SpawnConsumer(kafkaURL string, topic string, groupID string) error {
 	for {
 		m, err := reader.ReadMessage(context.Background())
 		if err != nil {
-			log.Printf("Consumer failed to read message with error: %v", err)
-			if err.Error() == kafka.RebalanceInProgress.Error() {
-				time.Sleep(3000 * time.Second)
-				//Reconnect
-				reader = getKafkaReader(kafkaURL, topic, groupID)
-			}
-			continue
+			log.Printf("Consumer failed to read message with error: %v\nKilling consumers and restarting in 5 minutes.", err)
+			ch <- 1
+			return nil
 		}
 		fmt.Printf("message at topic:%v partition:%v offset:%v	%s = %s\n", m.Topic, m.Partition, m.Offset, string(m.Key), string(m.Value))
 		fmt.Printf("%s", string(m.Value))
@@ -84,7 +79,12 @@ func SpawnConsumer(kafkaURL string, topic string, groupID string) error {
 		if m.Topic == ADD_TOPIC {
 			t.Id, err = d.AddTicker(t.Name)
 			if err != nil {
+				if err.Error() == "ticker active" {
+					log.Printf("SpawnWorker(): Ticker already active. Skipping.")
+					continue
+				}
 				log.Printf("SpawnWorker(); Could not add ticker with name %s: %v", t.Name, err)
+				continue
 			}
 		}
 
@@ -92,6 +92,7 @@ func SpawnConsumer(kafkaURL string, topic string, groupID string) error {
 			t.Id, err = d.RetrieveTickerIDByName(t.Name)
 			if err != nil {
 				log.Printf("SpawnWorker(); Could not find ticker with name %s: %v", t.Name, err)
+				continue
 			}
 		}
 
