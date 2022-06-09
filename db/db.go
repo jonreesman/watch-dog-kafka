@@ -91,11 +91,11 @@ func NewManager(t Type) (DBManager, error) {
 	// ReturnActiveTickers() is used as a test here
 	// to see if the tables have already been created.
 	// If not, the DB driver will create them automatically.
-	if _, err := d.ReturnActiveTickers(); err != nil {
+	/*if _, err := d.ReturnActiveTickers(); err != nil {
 		d.createTickerTable()
 		d.createStatementTable()
 		d.createSentimentTable()
-	}
+	}*/
 	return d, nil
 }
 
@@ -364,7 +364,6 @@ func (d DBManager) ReturnActiveTickers() (tickers TickerSlice, err error) {
 			LastScrapeTime:  time.Unix(lastScrapeTime, 0),
 			HourlySentiment: hourlySentiment,
 		})
-		log.Printf("%v: %s\n", id, name)
 	}
 	return tickers, nil
 }
