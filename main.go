@@ -98,8 +98,9 @@ func consumerManager(ch chan int, kafkaURL string, topic string, groupID string)
 	}
 	for {
 		<-ch
+		log.Printf("Spawning new consumer in 5 minutes...")
 		go func() {
-			time.Sleep(time.Second * time.Duration(3000))
+			time.Sleep(time.Second * time.Duration(300))
 			go kafka.SpawnConsumer(ch, kafkaURL, topic, groupID)
 		}()
 	}
