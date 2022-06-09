@@ -74,7 +74,7 @@ services:
     platform: linux/amd64
 
   wdk:
-    image: wdk:latest
+    image: jreesman1/wdk:latest-amd64
     container_name: wdk
     environment:
       kafkaURL: wdk-kafka-1:9093
@@ -94,10 +94,10 @@ services:
     depends_on:
       - wdk-server
       - kafka
-    platform: linux/arm64
+    platform: linux/amd64
 
   wdk-server:
-    image: wdk-server:latest
+    image: jreesman1/wdk-server:latest-amd64
     container_name: wdk-server
     ports: 
       - 9999:9999
@@ -126,7 +126,7 @@ services:
     environment: 
       MONGO_DB_URL: mongodb://mongo:27017
       PROXY_TARGET: http://wdk:3100
-      PROXY_BLACKLIST: http://wdk:3100/auth/
+      PROXY_BLACKLIST: /auth/
 
 
 
