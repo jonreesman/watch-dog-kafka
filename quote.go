@@ -19,6 +19,7 @@ func priceCheck(ticker string) float64 {
 	q, err := quote.Get(ticker)
 	if err != nil {
 		log.Printf("Error getting quote")
+		return 0
 	}
 	return q.RegularMarketPrice
 }
