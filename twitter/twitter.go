@@ -32,7 +32,7 @@ type Statement struct {
 func TwitterScrape(tickerName string, lastScrapeTime int64) []Statement {
 	scraper := twitterscraper.New()
 
-	scraper.SetSearchMode(twitterscraper.SearchLatest)
+	scraper.SetSearchMode(twitterscraper.SearchTop)
 	scraper.WithReplies(false)
 	var tweets []Statement
 
@@ -57,6 +57,51 @@ func TwitterScrape(tickerName string, lastScrapeTime int64) []Statement {
 			break
 		}
 
+		id, err := strconv.ParseUint(tweet.ID, 10, 64)
+		if err != nil {
+			log.Printf("twitterScrape(): Error extracting tweet id")
+		}
+		s := Statement{
+			Expression:   tweet.Text,
+			Subject:      tickerName,
+			Source:       "Twitter",
+			TimeStamp:    tweet.Timestamp,
+			Polarity:     0,
+			URLs:         tweet.URLs,
+			PermanentURL: tweet.PermanentURL,
+			ID:           id,
+		}
+		tweets = append(tweets, s)
+
+	}
+	return tweets
+}
+
+func TwitterScrapeRange(fromTime, toTime int64, tickerName string) []Statement {
+	scraper := twitterscraper.New()
+
+	scraper.SetSearchMode(twitterscraper.SearchTop)
+	scraper.WithReplies(false)
+	var tweets []Statement
+
+	// Since we scrape hourly, we are only concerned
+	// with all the tweets within the past hour.
+	log.Print(tickerName + " since_time:" + strconv.FormatInt(fromTime, 10) + " until_time:" + strconv.FormatInt(toTime, 10))
+	for tweet := range scraper.SearchTweets(context.Background(),
+		tickerName+" since_time:"+strconv.FormatInt(fromTime, 10)+" until_time:"+strconv.FormatInt(toTime, 10), 100) {
+		if tweet.Error != nil {
+			log.Printf("TwitterScrapeRange(): Error in SearchTweets() %v", tweet.Error)
+			return tweets
+		}
+
+		// Removes certain characters and replaces Emojis.
+		tweet.Text = sanitize(tweet.Text)
+
+		// Secondary check to ensure the tweet is actually
+		// about our stock of choice.
+		if !strings.Contains(tweet.Text, tickerName) {
+			continue
+		}
 		id, err := strconv.ParseUint(tweet.ID, 10, 64)
 		if err != nil {
 			log.Printf("twitterScrape(): Error extracting tweet id")
