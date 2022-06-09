@@ -51,11 +51,6 @@ func NewServer(kafkaURL, grpcHost string) (*Server, error) {
 	api := s.router.Group("/api")
 	{
 		api.GET("/", func(c *gin.Context) {
-			c.HTML(
-				http.StatusOK,
-				"web/web.html",
-				gin.H{"title": "Web"},
-			)
 			c.JSON(http.StatusOK, gin.H{
 				"message": "pong",
 			})
