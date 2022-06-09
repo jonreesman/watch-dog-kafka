@@ -6,6 +6,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jonreesman/watch-dog-kafka/db"
 	kafka "github.com/segmentio/kafka-go"
@@ -48,6 +49,11 @@ func SpawnConsumer(kafkaURL string, topic string, groupID string) error {
 		m, err := reader.ReadMessage(context.Background())
 		if err != nil {
 			log.Printf("Consumer failed to read message with error: %v", err)
+			if err.Error() == kafka.RebalanceInProgress.Error() {
+				time.Sleep(3000 * time.Second)
+				//Reconnect
+				reader = getKafkaReader(kafkaURL, topic, groupID)
+			}
 			continue
 		}
 		fmt.Printf("message at topic:%v partition:%v offset:%v	%s = %s\n", m.Topic, m.Partition, m.Offset, string(m.Key), string(m.Value))
