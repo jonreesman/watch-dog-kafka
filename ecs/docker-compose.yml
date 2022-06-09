@@ -1,0 +1,121 @@
+version: "3"
+
+services:
+  # Kafka (Zookeeper)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    hostname: zookeeper
+    volumes:
+      - zookeeper_data:/confluentinc
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2182
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - wdk-network
+    platform: linux/amd64
+
+  kafka:
+    # Variables
+    # - KAFKA_HOST: used to override Kafka Host, defaults to localhost.
+    #   - usage KAFKA_HOST=[hostName | IP Address] docker-compose up kafka
+    image: confluentinc/cp-enterprise-kafka:latest
+    hostname: kafka
+    depends_on:
+      - zookeeper
+    volumes:
+      - kafka_data:/confluentinc
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2182"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    networks:
+      - wdk-network
+    restart: on-failure
+    platform: linux/amd64
+
+  mysql-master:
+      image: jreesman1/wdk-mysql:latest
+      container_name: mysql-master
+      networks:
+      - wdk-network
+      environment:
+        MYSQL_ROOT_PASSWORD: password
+        MYSQL_DATABASE: app
+      platform: linux/amd64
+
+  mysql-slave:
+    image: jreesman1/wdk-mysql:latest
+    container_name: mysql-slave
+    networks:
+      - wdk-network
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: app
+    depends_on:
+      - mysql-master
+    platform: linux/amd64
+
+  wdk:
+    image: jreesman1/wdk:latest
+    container_name: wdk
+    environment:
+      kafkaURL: wdk-kafka-1:9093
+      groupID: demo
+      GRPC_HOST: wdk-server:9999
+      DB_MASTER: mysql-master:3306
+      DB_SLAVE: mysql-master:3306
+      DB_USER: root
+      DB_PWD: password
+      DB_NAME: app
+    ports: 
+      - 3100:3100
+    networks:
+      - wdk-network
+    depends_on:
+      - wdk-server
+      - kafka
+    platform: linux/arm64
+
+  wdk-server:
+    image: 048177338666.dkr.ecr.us-east-1.amazonaws.com/wdk-server:latest
+    container_name: wdk-server
+    networks:
+      - wdk-network
+    platform: linux/arm64
+
+  mongo:
+    image: mongo
+    restart: unless-stopped
+    networks: 
+      - wdk-network
+    volumes: 
+      - mongo:/data/db
+  
+  proxy:
+    image: virtualzone/jwt-auth-proxy
+    restart: unless-stopped
+    ports: 
+      - 8080:8080
+    networks: 
+      - wdk-network
+    volumes: 
+      - certs:/app/certs
+    environment: 
+      MONGO_DB_URL: mongodb://mongo:27017
+      PROXY_TARGET: http://wdk:3100
+      PROXY_BLACKLIST: /auth/
+
+
+
+networks:
+  wdk-network:
+
+volumes:
+  zookeeper_data:
+  kafka_data:
+  certs:
+  mongo:
+
