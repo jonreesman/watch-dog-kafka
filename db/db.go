@@ -135,7 +135,7 @@ func (d DBManager) AddTicker(name string) (int, error) {
 	}
 	if t, err := d.RetrieveTickerByName(name); err == nil {
 		if t.Active == 1 {
-			return t.Id, errors.New("ticker already exists and is active")
+			return t.Id, errors.New("ticker active")
 		}
 		if _, err := d.db.Exec(activateTickerQuery, t.Id); err != nil {
 			return 0, err
