@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"regexp"
 
 	"github.com/piquette/finance-go/quote"
 )
@@ -21,6 +22,9 @@ func priceCheck(ticker string) float64 {
 		log.Printf("Error getting quote")
 		return 0
 	}
+	if q == nil {
+		return 0
+	}
 	return q.RegularMarketPrice
 }
 
@@ -34,4 +38,13 @@ func CheckTickerExists(ticker string) bool {
 	} else {
 		return true
 	}
+}
+
+func SanitizeTicker(s string) string {
+	regex := regexp.MustCompile("/[A-Za-z]")
+	s = regex.ReplaceAllLiteralString(s, "")
+	if len(s) == 0 {
+		return ""
+	}
+	return s
 }
