@@ -62,8 +62,8 @@ func (t ticker) pushToDb(d db.DBManager) {
 	if err := tx.Commit(); err != nil {
 		log.Printf("Error pushing %s tweets to DB: %v", t.Name, err)
 	}
-
 	wg.Wait()
+	t.Tweets = nil
 }
 
 // Given lastScrapeTime, will scrape Twitter for all tweets
