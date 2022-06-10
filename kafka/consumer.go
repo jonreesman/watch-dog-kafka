@@ -6,6 +6,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jonreesman/watch-dog-kafka/db"
 	kafka "github.com/segmentio/kafka-go"
@@ -34,12 +35,12 @@ func getKafkaReader(kafkaURL, topic, groupID string) *kafka.Reader {
 // Defines our consumer goroutine. Retrieves a Kafka Reader for its topic,
 // grabs a connection to the master database, and listes to the topic
 // for events. It can handle the logic for deletions, additions, and scrapes.
-func SpawnConsumer(ch chan int, kafkaURL string, topic string, groupID string) error {
-	log.Printf("Starting consumer with kafkaURL %s", kafkaURL)
+func SpawnConsumer(ch chan int, kafkaURL string, topic string, groupID string) {
 	reader := getKafkaReader(kafkaURL, topic, groupID)
 	d, err := db.NewManager(db.MASTER)
 	if err != nil {
 		log.Printf("Error establishing DB connection: %v", err)
+		ch <- 1
 	}
 	defer reader.Close()
 	defer d.Close()
@@ -47,12 +48,18 @@ func SpawnConsumer(ch chan int, kafkaURL string, topic string, groupID string) e
 	for {
 		m, err := reader.ReadMessage(context.Background())
 		if err != nil {
-			log.Printf("Consumer failed to read message with error: %v\nKilling consumers and restarting in 5 minutes.", err)
-			ch <- 1
-			return nil
+			sleepTime := 30
+			if err.Error() == kafka.BrokerNotAvailable.Error() {
+				sleepTime = 120
+			}
+			if err.Error() == kafka.RebalanceInProgress.Error() {
+				sleepTime = 60
+			}
+			time.Sleep(time.Duration(sleepTime) * time.Second)
+			reader = getKafkaReader(kafkaURL, topic, groupID)
+			continue
 		}
 		fmt.Printf("message at topic:%v partition:%v offset:%v	%s = %s\n", m.Topic, m.Partition, m.Offset, string(m.Key), string(m.Value))
-		fmt.Printf("%s", string(m.Value))
 		if m.Value == nil {
 			log.Printf("message value nil. continuing")
 			continue
@@ -106,6 +113,7 @@ func SpawnConsumer(ch chan int, kafkaURL string, topic string, groupID string) e
 		}
 		t.scrape(lastScrapeTime)
 		t.pushToDb(d)
+		t = ticker{}
 	}
 
 }
