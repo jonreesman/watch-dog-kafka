@@ -86,8 +86,6 @@ func NewManager(t Type) (DBManager, error) {
 		return DBManager{}, err
 	}
 
-	fmt.Println("Connection established")
-
 	// ReturnActiveTickers() is used as a test here
 	// to see if the tables have already been created.
 	// If not, the DB driver will create them automatically.
