@@ -11,6 +11,8 @@ import (
 
 	"google.golang.org/grpc"
 
+	_ "net/http/pprof"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/jonreesman/watch-dog-kafka/db"
@@ -92,15 +94,13 @@ func (s Server) newTickerHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
-	fmt.Println(input.Name)
+	sanitizedTicker := SanitizeTicker(input.Name)
 
-	//CHECK IF REAL THEN MAKE PRODUCER
-
-	if !CheckTickerExists(input.Name) {
+	if !CheckTickerExists(sanitizedTicker) {
 		c.JSON(http.StatusNotFound, gin.H{"Id:": 0, "Name": "None"})
 	}
 
-	kafka.ProducerHandler(c, s.kafkaURL, kafka.ADD_TOPIC, input.Name)
+	kafka.ProducerHandler(c, s.kafkaURL, kafka.ADD_TOPIC, sanitizedTicker)
 }
 
 // Returns only active tickers when called with a GET request.
@@ -228,7 +228,6 @@ func (s Server) returnTickerHandler(c *gin.Context) {
 		"sentiment_history": sentimentHistory,
 		"statement_history": statementHistory,
 	})
-
 }
 
 // Deactivates the ticker for hourly scraping and display
