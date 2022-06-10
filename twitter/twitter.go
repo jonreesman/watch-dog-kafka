@@ -45,7 +45,7 @@ func TwitterScrape(tickerName string, lastScrapeTime int64) []Statement {
 		}
 
 		// Removes certain characters and replaces Emojis.
-		tweet.Text = sanitize(tweet.Text)
+		tweet.Text = SanitizeTweet(tweet.Text)
 
 		// Secondary check to ensure the tweet is actually
 		// about our stock of choice.
@@ -95,7 +95,7 @@ func TwitterScrapeRange(fromTime, toTime int64, tickerName string) []Statement {
 		}
 
 		// Removes certain characters and replaces Emojis.
-		tweet.Text = sanitize(tweet.Text)
+		tweet.Text = SanitizeTweet(tweet.Text)
 
 		// Secondary check to ensure the tweet is actually
 		// about our stock of choice.
@@ -122,7 +122,7 @@ func TwitterScrapeRange(fromTime, toTime int64, tickerName string) []Statement {
 	return tweets
 }
 
-func sanitize(s string) string {
+func SanitizeTweet(s string) string {
 	emojis := gomoji.FindAll(s)
 	regex := regexp.MustCompile("[[:^ascii:]]")
 
