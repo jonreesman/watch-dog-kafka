@@ -21,33 +21,25 @@ import (
 )
 
 type Server struct {
-	d        db.DBManager
-	router   *gin.Engine
-	grpcHost string
-	kafkaURL string
+	d              db.DBManager
+	router         *gin.Engine
+	grpcServerConn *grpc.ClientConn
+	kafkaURL       string
 }
 
 // Creates and returns a server instance to main.
 // This server struct contains an instance of our
 // database manager, the Gin router, and the kafkaURL
 // so that it can produce messages in our Kafk topics.
-func NewServer(kafkaURL, grpcHost string) (*Server, error) {
+func NewServer(db db.DBManager, grpcServerConn *grpc.ClientConn, kafkaURL string) (*Server, error) {
 	var (
-		s   Server
-		err error
+		s Server
 	)
-
-	// Generates a database manager on our slave/replica database
-	// since we will only need read access.
-	s.d, err = db.NewManager(db.SLAVE)
-	if err != nil {
-		log.Printf("Error Opening DB connection in NewServer(): %v", err)
-		return nil, err
-	}
+	s.d = db
 	s.router = gin.Default()
 	s.router.Use(cors.Default())
 	s.kafkaURL = kafkaURL
-	s.grpcHost = grpcHost
+	s.grpcServerConn = grpcServerConn
 
 	// Basic routing to generate our REST API handlers.
 	api := s.router.Group("/api")
@@ -116,9 +108,10 @@ func (s Server) newTickerHandler(c *gin.Context) {
 		}
 */
 func (s Server) returnTickersHandler(c *gin.Context) {
-	tickers, err := s.d.ReturnActiveTickers()
+	tickers, err := s.d.ReturnActiveTickers(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, nil)
+		return
 	}
 	//Add current prices to tickers
 	type payloadItem struct {
@@ -197,14 +190,7 @@ func (s Server) returnTickerHandler(c *gin.Context) {
 	}
 
 	sentimentHistory := s.d.ReturnSentimentHistory(id, fromTime)
-	conn, err := grpc.Dial(s.grpcHost, grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		log.Printf("returnTickerHandler(): GRPC Dial Error %v", err)
-		errorResponse(err)
-		return
-	}
-	defer conn.Close()
-	client := pb.NewQuotesClient(conn)
+	client := pb.NewQuotesClient(s.grpcServerConn)
 	request := pb.QuoteRequest{
 		Name:   name,
 		Period: period,
