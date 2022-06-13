@@ -87,4 +87,7 @@ func (t *ticker) computeHourlySentiment() {
 		total += float64(response.Polarity)
 	}
 	t.HourlySentiment = total / float64(t.numTweets)
+	if total == 0 || t.numTweets == 0 {
+		t.HourlySentiment = 0
+	}
 }
