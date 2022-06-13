@@ -29,6 +29,8 @@ func ProducerHandler(c *gin.Context, kafkaURL, topic, ticker string) {
 	if c == nil {
 		if err := kafkaWriter.WriteMessages(context.Background(), msg); err != nil {
 			log.Printf("ProducerHandler failed to write message for ticker %s: %v\n", ticker, err)
+		} else {
+			log.Printf("ProducerHandler wrote message for ticker %s", ticker)
 		}
 		return
 	}
@@ -37,6 +39,8 @@ func ProducerHandler(c *gin.Context, kafkaURL, topic, ticker string) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	} else {
+		log.Printf("ProducerHandler wrote message for ticker %s", ticker)
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
