@@ -10,6 +10,7 @@ import (
 
 	"github.com/jonreesman/watch-dog-kafka/db"
 	kafka "github.com/segmentio/kafka-go"
+	"google.golang.org/grpc"
 )
 
 // Defines the Kafka topics for the project
@@ -35,15 +36,10 @@ func getKafkaReader(kafkaURL, topic, groupID string) *kafka.Reader {
 // Defines our consumer goroutine. Retrieves a Kafka Reader for its topic,
 // grabs a connection to the master database, and listes to the topic
 // for events. It can handle the logic for deletions, additions, and scrapes.
-func SpawnConsumer(ch chan int, kafkaURL string, topic string, groupID string) {
+func SpawnConsumer(ch chan int, main db.DBManager, grpcServerConn *grpc.ClientConn, kafkaURL string, topic string, groupID string) {
 	reader := getKafkaReader(kafkaURL, topic, groupID)
-	d, err := db.NewManager(db.MASTER)
-	if err != nil {
-		log.Printf("Error establishing DB connection: %v", err)
-		ch <- 1
-	}
+	d := main
 	defer reader.Close()
-	defer d.Close()
 
 	for {
 		m, err := reader.ReadMessage(context.Background())
@@ -66,6 +62,7 @@ func SpawnConsumer(ch chan int, kafkaURL string, topic string, groupID string) {
 		}
 		t := ticker{
 			Name: string(m.Value),
+			db:   d,
 		}
 
 		// If the consumer is a `delete` consumer, it'll exclusively
@@ -103,6 +100,7 @@ func SpawnConsumer(ch chan int, kafkaURL string, topic string, groupID string) {
 			}
 		}
 
+		t.grpcServerConn = grpcServerConn
 		// Grabs the last time the stock was scraped so that we know
 		// how far back we must scrape twitter. If none is found (eg. its
 		// NULL in the database), we set it to 0 to do an initial scrape.
@@ -112,7 +110,7 @@ func SpawnConsumer(ch chan int, kafkaURL string, topic string, groupID string) {
 			lastScrapeTime = 0
 		}
 		t.scrape(lastScrapeTime)
-		t.pushToDb(d)
+		t.pushToDb()
 		t = ticker{}
 	}
 
