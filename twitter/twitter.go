@@ -24,6 +24,9 @@ type Statement struct {
 	URLs         []string
 	PermanentURL string
 	ID           uint64
+	Likes        int
+	Replies      int
+	Retweets     int
 }
 
 // Returns most tweets for a given stock or ticker name with a given
@@ -70,6 +73,9 @@ func TwitterScrape(tickerName string, lastScrapeTime int64) []Statement {
 			URLs:         tweet.URLs,
 			PermanentURL: tweet.PermanentURL,
 			ID:           id,
+			Likes:        tweet.Likes,
+			Replies:      tweet.Replies,
+			Retweets:     tweet.Retweets,
 		}
 		tweets = append(tweets, s)
 
