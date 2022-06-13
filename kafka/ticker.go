@@ -2,7 +2,6 @@ package kafka
 
 import (
 	"context"
-	"os"
 
 	"fmt"
 	"log"
@@ -26,6 +25,8 @@ type ticker struct {
 	HourlySentiment float64
 	Id              int
 	Active          int
+	grpcServerConn  *grpc.ClientConn
+	db              db.DBManager
 }
 
 // Defines a statement object. Primarily refers to a tweet,
@@ -39,25 +40,19 @@ type intervalQuote struct {
 	CurrentPrice float64
 }
 
-// DEPRECATED. Wipes our ticker object between
-// scrapes. DELETE.
-/*func (t *ticker) hourlyWipe() {
-	t.numTweets = 0
-	t.Tweets = nil
-}*/
-
 // Handles pushing all relevant ticker information to the database concurrently.
 // It will push all tweets and hourly sentiments to the DB and update the lastScrapeTime.
-func (t ticker) pushToDb(d db.DBManager) {
+func (t ticker) pushToDb() {
 	var wg sync.WaitGroup
+	db := t.db
 	wg.Add(1)
-	go d.AddSentiment(&wg, t.LastScrapeTime.Unix(), t.Id, t.HourlySentiment)
+	go db.AddSentiment(&wg, t.LastScrapeTime.Unix(), t.Id, t.HourlySentiment)
 	wg.Add(1)
-	go d.UpdateTicker(&wg, t.Id, t.LastScrapeTime)
-	tx := d.BeginTx()
+	go db.UpdateTicker(&wg, t.Id, t.LastScrapeTime)
+	tx := db.BeginTx()
 	for _, tw := range t.Tweets {
 		fmt.Println("added statement to DB for:", tw.Subject)
-		d.AddStatements(tx, t.Id, tw.Expression, tw.TimeStamp, tw.Polarity, tw.PermanentURL, tw.ID)
+		db.AddStatements(tx, t.Id, tw.Expression, tw.TimeStamp, tw.Polarity, tw.PermanentURL, tw.ID, tw.Likes, tw.Replies, tw.Retweets)
 	}
 	if err := tx.Commit(); err != nil {
 		log.Printf("Error pushing %s tweets to DB: %v", t.Name, err)
@@ -69,7 +64,7 @@ func (t ticker) pushToDb(d db.DBManager) {
 // Given lastScrapeTime, will scrape Twitter for all tweets
 // back to that time, then compute the hourly sentiment.
 func (t *ticker) scrape(lastScrapeTime int64) {
-	t.Tweets = append(t.Tweets, twitter.TwitterScrape(t.Name, lastScrapeTime)...)
+	t.Tweets = twitter.TwitterScrape(t.Name, lastScrapeTime)
 	t.numTweets = len(t.Tweets)
 	t.LastScrapeTime = time.Now()
 	t.computeHourlySentiment()
@@ -79,14 +74,7 @@ func (t *ticker) scrape(lastScrapeTime int64) {
 // sentiment analysis on the tweets for a given ticker.
 func (t *ticker) computeHourlySentiment() {
 	var total float64
-	addr := os.Getenv("GRPC_HOST")
-	conn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		log.Printf("computeHourlySentiment(): Failed to dial GRPC.")
-		return
-	}
-	defer conn.Close()
-	client := pb.NewSentimentClient(conn)
+	client := pb.NewSentimentClient(t.grpcServerConn)
 	for i, s := range t.Tweets {
 		request := pb.SentimentRequest{
 			Tweet: s.Expression,
