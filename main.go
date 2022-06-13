@@ -32,6 +32,11 @@ var (
 func run(db db.DBManager, kafkaURL string) error {
 	// Grabs all active stock tickers every hour, and generates
 	// a scrape message on the `scrape` Kafka topic.
+
+	//Give Kafka time to start up.
+	log.Printf("Waiting 5 minutes to start initial scrape...")
+	time.Sleep(5 * time.Minute)
+	log.Printf("5 minutes elapsed... starting scrape.")
 	for {
 		tickers, _ := db.ReturnActiveTickers(nil)
 		go func() {
