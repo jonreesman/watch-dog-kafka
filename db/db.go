@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -45,30 +44,19 @@ func (d DBManager) Close() {
 	d.db.Close()
 }
 
-type Type int
-
-const (
-	MASTER = iota
-	SLAVE
-)
-
 // Creates and returns a DB Manager based off the type
 // of connection the implementer needs. Here, it is either
 // a master or slave connection.
-func NewManager(t Type) (DBManager, error) {
+func NewManager(dbUser, dbPwd, dbName, dbURL string) (DBManager, error) {
 	var (
 		d   DBManager
 		err error
 	)
-	d.dbUser = os.Getenv("DB_USER")
-	d.dbPwd = os.Getenv("DB_PWD")
-	d.dbName = os.Getenv("DB_NAME")
+	d.dbUser = dbUser
+	d.dbPwd = dbPwd
+	d.dbName = dbName
+	d.dbURL = dbURL
 
-	if t == MASTER {
-		d.dbURL = os.Getenv("DB_MASTER")
-	} else {
-		d.dbURL = os.Getenv("DB_SLAVE")
-	}
 	d.URI = fmt.Sprintf("%s:%s@tcp(%s)/%s", d.dbUser, d.dbPwd, d.dbURL, d.dbName)
 	d.db, err = sql.Open("mysql", d.URI)
 	if err != nil {
@@ -85,6 +73,9 @@ func NewManager(t Type) (DBManager, error) {
 		log.Printf("Failed to `USE %s` in NewManager(): %v", d.dbName, err)
 		return DBManager{}, err
 	}
+
+	d.db.SetMaxOpenConns(55)
+	d.db.SetMaxIdleConns(55)
 
 	// ReturnActiveTickers() is used as a test here
 	// to see if the tables have already been created.
@@ -142,13 +133,15 @@ func (d DBManager) AddTicker(name string) (int, error) {
 	}
 
 	dbQuery, err := d.db.Prepare(addTickerQuery)
+	defer dbQuery.Close()
 	if err != nil {
 		log.Print("Error in AddTicker()", err)
 		return 0, err
 	}
-	if _, err := dbQuery.Query(name, 1, nil); err != nil {
+	if row, err := dbQuery.Query(name, 1, nil); err != nil {
 		return 0, err
-
+	} else {
+		row.Close()
 	}
 
 	id, err := d.RetrieveTickerIDByName(name)
@@ -174,11 +167,11 @@ func (d DBManager) UpdateTicker(wg *sync.WaitGroup, id int, timeStamp time.Time)
 }
 
 const addStatementQuery = `
-INSERT INTO statements(ticker_id, expression, time_stamp, polarity, url, tweet_id) ` +
-	`VALUES (?, ?, ?, ?, ?, ?)`
+INSERT INTO statements(ticker_id, expression, time_stamp, polarity, url, tweet_id, likes, replies, retweets) ` +
+	`VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 // Adds a single tweet to the statement table of the database.
-func (d DBManager) AddStatement(tickerId int, expression string, timeStamp int64, polarity float64, url string, tweet_id uint64) {
+func (d DBManager) AddStatement(tickerId int, expression string, timeStamp int64, polarity float64, url string, tweet_id uint64, likes, replies, retweets int) {
 	_, err := d.db.Exec(addStatementQuery,
 		tickerId,
 		expression,
@@ -186,6 +179,9 @@ func (d DBManager) AddStatement(tickerId int, expression string, timeStamp int64
 		float32(polarity),
 		url,
 		tweet_id,
+		likes,
+		replies,
+		retweets,
 	)
 	if err != nil {
 		log.Print("Error in addStatement", err)
@@ -201,7 +197,7 @@ func (d DBManager) BeginTx() *sql.Tx {
 }
 
 // Adds a single tweet to the statement table of the database.
-func (d DBManager) AddStatements(t *sql.Tx, tickerId int, expression string, timeStamp int64, polarity float64, url string, tweet_id uint64) {
+func (d DBManager) AddStatements(t *sql.Tx, tickerId int, expression string, timeStamp int64, polarity float64, url string, tweet_id uint64, likes, replies, retweets int) {
 	_, err := t.Exec(addStatementQuery,
 		tickerId,
 		expression,
@@ -209,6 +205,9 @@ func (d DBManager) AddStatements(t *sql.Tx, tickerId int, expression string, tim
 		float32(polarity),
 		url,
 		tweet_id,
+		likes,
+		replies,
+		retweets,
 	)
 	if err != nil {
 		log.Print("Error in addStatements(): ", err)
@@ -318,12 +317,16 @@ SELECT tickers.ticker_id, tickers.name, tickers.last_scrape_time, ` +
 	`WHERE active=1 ORDER BY ticker_id`
 
 // Searches for and returns only tickers presently listed as active.
-func (d DBManager) ReturnActiveTickers() (tickers TickerSlice, err error) {
-	rows, err := d.db.Query(activeTickerQuery)
+func (d DBManager) ReturnActiveTickers(ctx context.Context) (tickers TickerSlice, err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	rows, err := d.db.QueryContext(ctx, activeTickerQuery)
 	if err != nil {
 		log.Printf("Database Error in ReturnActiveTickers(): %v", err)
 		return nil, err
 	}
+	log.Printf("ReturnActiveTickers(): Query complete.")
 	defer rows.Close()
 
 	var (
@@ -409,6 +412,7 @@ func (d DBManager) ReturnSentimentHistory(id int, fromTime int64) []IntervalQuot
 	if err != nil {
 		log.Print("Error returning senitment history: ", err)
 	}
+	defer rows.Close()
 
 	var payload []IntervalQuote
 	var s IntervalQuote
@@ -429,7 +433,7 @@ func (d DBManager) ReturnSentimentHistory(id int, fromTime int64) []IntervalQuot
 }
 
 const returnAllStatementsQuery = `
-SELECT time_stamp, expression, url, polarity, tweet_id ` +
+SELECT time_stamp, expression, url, polarity, tweet_id, likes, replies, retweets ` +
 	`FROM statements WHERE ticker_id=? ` +
 	`ORDER BY time_stamp DESC`
 
@@ -441,6 +445,7 @@ func (d DBManager) ReturnAllStatements(id int, fromTime int64) []twitter.Stateme
 		return nil
 	}
 
+	defer rows.Close()
 	var (
 		returnPackage []twitter.Statement
 		st            twitter.Statement
@@ -450,7 +455,7 @@ func (d DBManager) ReturnAllStatements(id int, fromTime int64) []twitter.Stateme
 		if rows.Err() != nil {
 			log.Printf("ReturnAllStatements(): %v", rows.Err())
 		}
-		if err := rows.Scan(&st.TimeStamp, &st.Expression, &st.PermanentURL, &st.Polarity, &st.ID); err != nil {
+		if err := rows.Scan(&st.TimeStamp, &st.Expression, &st.PermanentURL, &st.Polarity, &st.ID, &st.Likes, &st.Replies, &st.Retweets); err != nil {
 			log.Printf("ReturnAllStatements(): Error in rows.Scan() for ticker %d: %v", id, err)
 		}
 		if st.TimeStamp < fromTime {
@@ -470,6 +475,7 @@ func (d DBManager) CheckTickerExists(ticker string) bool {
 		log.Printf("Error checking if ticker %s exists: %v", ticker, err)
 		return false
 	}
+	defer rows.Close()
 	var id int
 	for rows.Next() {
 		if rows.Err() != nil {
