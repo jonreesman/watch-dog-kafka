@@ -37,13 +37,14 @@ func getKafkaReader(kafkaURL, topic, groupID string) *kafka.Reader {
 // grabs a connection to the master database, and listes to the topic
 // for events. It can handle the logic for deletions, additions, and scrapes.
 func SpawnConsumer(ch chan int, main db.DBManager, grpcServerConn *grpc.ClientConn, kafkaURL string, topic string, groupID string) {
+	fmt.Printf("Spawning consumer on topic %s", topic)
 	reader := getKafkaReader(kafkaURL, topic, groupID)
 	d := main
 	defer reader.Close()
-
 	for {
 		m, err := reader.ReadMessage(context.Background())
 		if err != nil {
+			log.Printf("SpawnConsumer(): %v", err)
 			sleepTime := 30
 			if err.Error() == kafka.BrokerNotAvailable.Error() {
 				sleepTime = 120
@@ -52,7 +53,7 @@ func SpawnConsumer(ch chan int, main db.DBManager, grpcServerConn *grpc.ClientCo
 				sleepTime = 60
 			}
 			time.Sleep(time.Duration(sleepTime) * time.Second)
-			reader = getKafkaReader(kafkaURL, topic, groupID)
+			log.Printf("Consumer resuming...")
 			continue
 		}
 		fmt.Printf("message at topic:%v partition:%v offset:%v	%s = %s\n", m.Topic, m.Partition, m.Offset, string(m.Key), string(m.Value))
