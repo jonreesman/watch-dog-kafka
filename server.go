@@ -60,8 +60,8 @@ func NewServer(db db.DBManager, grpcServerConn *grpc.ClientConn, kafkaURL string
 	return &s, nil
 }
 
-func (s *Server) startServer() error {
-	err := s.router.Run(":3100")
+func (server *Server) startServer() error {
+	err := server.router.Run(":3100")
 	return err
 }
 
@@ -79,7 +79,7 @@ func errorResponse(err error) gin.H {
 	Response Form:
 		"success": true
 */
-func (s Server) newTickerHandler(c *gin.Context) {
+func (server Server) newTickerHandler(c *gin.Context) {
 	var input db.Ticker
 	fmt.Println(c.Request.Body)
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -92,7 +92,7 @@ func (s Server) newTickerHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"Id:": 0, "Name": "None"})
 	}
 
-	kafka.ProducerHandler(c, s.kafkaURL, kafka.ADD_TOPIC, sanitizedTicker)
+	kafka.ProducerHandler(c, server.kafkaURL, kafka.ADD_TOPIC, sanitizedTicker)
 }
 
 // Returns only active tickers when called with a GET request.
@@ -107,8 +107,8 @@ func (s Server) newTickerHandler(c *gin.Context) {
 			Quote: [current stock price]
 		}
 */
-func (s Server) returnTickersHandler(c *gin.Context) {
-	tickers, err := s.d.ReturnActiveTickers(c.Request.Context())
+func (server Server) returnTickersHandler(c *gin.Context) {
+	tickers, err := server.d.ReturnActiveTickers(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, nil)
 		return
@@ -123,13 +123,13 @@ func (s Server) returnTickersHandler(c *gin.Context) {
 	}
 	payload := make([]payloadItem, 0)
 
-	for _, tick := range tickers {
+	for _, ticker := range tickers {
 		it := payloadItem{
-			Name:            tick.Name,
-			LastScrapeTime:  tick.LastScrapeTime,
-			HourlySentiment: tick.HourlySentiment,
-			Id:              tick.Id,
-			Quote:           priceCheck(tick.Name),
+			Name:            ticker.Name,
+			LastScrapeTime:  ticker.LastScrapeTime,
+			HourlySentiment: ticker.HourlySentiment,
+			Id:              ticker.Id,
+			Quote:           priceCheck(ticker.Name),
 		}
 		payload = append(payload, it)
 	}
@@ -146,7 +146,7 @@ func (s Server) returnTickersHandler(c *gin.Context) {
 	Response Form:
 		TO DO
 */
-func (s Server) returnTickerHandler(c *gin.Context) {
+func (server Server) returnTickerHandler(c *gin.Context) {
 	var (
 		id       int
 		interval string
@@ -161,7 +161,7 @@ func (s Server) returnTickerHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid id."})
 		return
 	}
-	t, err = s.d.RetrieveTickerById(id)
+	t, err = server.d.RetrieveTickerById(id)
 	if err != nil {
 		log.Print("Unable to retieve ticker")
 	}
@@ -184,13 +184,13 @@ func (s Server) returnTickerHandler(c *gin.Context) {
 
 	}
 
-	if tick, err = s.d.RetrieveTickerById(id); err != nil {
+	if tick, err = server.d.RetrieveTickerById(id); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to retrieve ticker"})
 		return
 	}
 
-	sentimentHistory := s.d.ReturnSentimentHistory(id, fromTime)
-	client := pb.NewQuotesClient(s.grpcServerConn)
+	sentimentHistory := server.d.ReturnSentimentHistory(id, fromTime)
+	client := pb.NewQuotesClient(server.grpcServerConn)
 	request := pb.QuoteRequest{
 		Name:   name,
 		Period: period,
@@ -206,7 +206,7 @@ func (s Server) returnTickerHandler(c *gin.Context) {
 		quoteHistory = append(quoteHistory, db.IntervalQuote{TimeStamp: quote.Time.Seconds, CurrentPrice: float64(quote.Price)})
 	}
 
-	statementHistory := s.d.ReturnAllStatements(id, fromTime)
+	statementHistory := server.d.ReturnAllStatements(id, fromTime)
 
 	c.JSON(http.StatusOK, gin.H{
 		"ticker":            tick,
@@ -224,7 +224,7 @@ func (s Server) returnTickerHandler(c *gin.Context) {
 		"success": true
 		"error": "Invalid id."
 */
-func (s Server) deactivateTickerHandler(c *gin.Context) {
+func (server Server) deactivateTickerHandler(c *gin.Context) {
 	var (
 		id  int
 		err error
@@ -234,5 +234,5 @@ func (s Server) deactivateTickerHandler(c *gin.Context) {
 		return
 	}
 
-	kafka.ProducerHandler(c, s.kafkaURL, kafka.DELETE_TOPIC, strconv.Itoa(id))
+	kafka.ProducerHandler(c, server.kafkaURL, kafka.DELETE_TOPIC, strconv.Itoa(id))
 }
