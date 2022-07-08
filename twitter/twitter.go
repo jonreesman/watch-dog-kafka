@@ -27,6 +27,72 @@ type Statement struct {
 	Likes        int
 	Replies      int
 	Retweets     int
+	Spam         bool
+	User         twitterscraper.Profile
+	Location     *twitterscraper.Place
+}
+
+// Returns most tweets for a given stock or ticker name with a given
+// fromTime. This fromTime is the last time Twitter was scraped for the
+// stock or crypto.
+// The addition of collecting the profiles of the users who made the
+// tweets doubles the time required for a query.
+func TwitterScrapeProfile(tickerName string, lastScrapeTime int64) []Statement {
+	scraper := twitterscraper.New()
+
+	scraper.SetSearchMode(twitterscraper.SearchTop)
+	scraper.WithReplies(false)
+	var tweets []Statement
+
+	// Since we scrape hourly, we are only concerned
+	// with all the tweets within the past hour.
+	for tweet := range scraper.SearchTweets(context.Background(),
+		tickerName+" within_time:1h", 100) {
+		if tweet.Error != nil {
+			return tweets
+		}
+
+		// Removes certain characters and replaces Emojis.
+		tweet.Text = SanitizeTweet(tweet.Text)
+
+		// Secondary check to ensure the tweet is actually
+		// about our stock of choice.
+		if !strings.Contains(tweet.Text, tickerName) {
+			continue
+		}
+
+		if tweet.Timestamp < lastScrapeTime {
+			break
+		}
+
+		id, err := strconv.ParseUint(tweet.ID, 10, 64)
+		if err != nil {
+			log.Printf("twitterScrape(): Error extracting tweet id")
+		}
+
+		profile, err := scraper.GetProfile(tweet.Username)
+		if err != nil {
+			log.Printf("twitterScrape(): Error retrieving profile for user %s: %v", tweet.Username, err)
+		}
+		s := Statement{
+			Expression:   tweet.Text,
+			Subject:      tickerName,
+			Source:       "Twitter",
+			TimeStamp:    tweet.Timestamp,
+			Polarity:     0,
+			URLs:         tweet.URLs,
+			PermanentURL: tweet.PermanentURL,
+			ID:           id,
+			Likes:        tweet.Likes,
+			Replies:      tweet.Replies,
+			Retweets:     tweet.Retweets,
+			User:         profile,
+			Location:     tweet.Place,
+		}
+		tweets = append(tweets, s)
+
+	}
+	return tweets
 }
 
 // Returns most tweets for a given stock or ticker name with a given
@@ -64,6 +130,7 @@ func TwitterScrape(tickerName string, lastScrapeTime int64) []Statement {
 		if err != nil {
 			log.Printf("twitterScrape(): Error extracting tweet id")
 		}
+
 		s := Statement{
 			Expression:   tweet.Text,
 			Subject:      tickerName,
@@ -76,6 +143,7 @@ func TwitterScrape(tickerName string, lastScrapeTime int64) []Statement {
 			Likes:        tweet.Likes,
 			Replies:      tweet.Replies,
 			Retweets:     tweet.Retweets,
+			Location:     tweet.Place,
 		}
 		tweets = append(tweets, s)
 
