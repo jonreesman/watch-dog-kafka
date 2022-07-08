@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jonreesman/watch-dog-kafka/by"
 	"github.com/jonreesman/watch-dog-kafka/db"
 	kafka "github.com/segmentio/kafka-go"
 	"google.golang.org/grpc"
@@ -20,6 +21,12 @@ const (
 	DELETE_TOPIC = "delete"
 	SCRAPE_TOPIC = "scrape"
 )
+
+type ConsumerConfig struct {
+	DbManager      db.DBManager
+	GrpcServerConn *grpc.ClientConn
+	SpamDetector   *by.SpamDetector
+}
 
 // Returns a Kafka reader for a specific topic and group
 func getKafkaReader(kafkaURL, topic, groupID string) *kafka.Reader {
@@ -36,10 +43,10 @@ func getKafkaReader(kafkaURL, topic, groupID string) *kafka.Reader {
 // Defines our consumer goroutine. Retrieves a Kafka Reader for its topic,
 // grabs a connection to the master database, and listes to the topic
 // for events. It can handle the logic for deletions, additions, and scrapes.
-func SpawnConsumer(ch chan int, main db.DBManager, grpcServerConn *grpc.ClientConn, kafkaURL string, topic string, groupID string) {
+func SpawnConsumer(ch chan int, config ConsumerConfig, kafkaURL string, topic string, groupID string) {
 	fmt.Printf("Spawning consumer on topic %s\n", topic)
 	reader := getKafkaReader(kafkaURL, topic, groupID)
-	d := main
+	d := config.DbManager
 	defer reader.Close()
 	for {
 		m, err := reader.ReadMessage(context.Background())
@@ -102,7 +109,7 @@ func SpawnConsumer(ch chan int, main db.DBManager, grpcServerConn *grpc.ClientCo
 			}
 		}
 
-		t.grpcServerConn = grpcServerConn
+		t.grpcServerConn = config.GrpcServerConn
 		// Grabs the last time the stock was scraped so that we know
 		// how far back we must scrape twitter. If none is found (eg. its
 		// NULL in the database), we set it to 0 to do an initial scrape.
