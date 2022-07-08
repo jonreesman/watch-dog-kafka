@@ -11,6 +11,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
+	"github.com/jonreesman/watch-dog-kafka/by"
 	"github.com/jonreesman/watch-dog-kafka/db"
 	"github.com/jonreesman/watch-dog-kafka/kafka"
 	"google.golang.org/grpc"
@@ -79,20 +80,31 @@ func main() {
 
 	main, err := db.NewManager(dbUser, dbPwd, dbName, dbMasterURL)
 	if err != nil {
-		log.Printf("Error Opening DB connection in NewServer(): %v", err)
+		log.Fatalf("Error Opening DB connection in NewServer(): %v", err)
 	}
 	replica, err := db.NewManager(dbUser, dbPwd, dbName, dbSlaveURL)
 	if err != nil {
-		log.Printf("Error Opening DB connection in NewServer(): %v", err)
+		log.Fatalf("Error Opening DB connection in NewServer(): %v", err)
 	}
 	grpcServerConn, err := grpc.Dial(grpcHost, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	if err != nil {
-		log.Printf("computeHourlySentiment(): Failed to dial GRPC.")
+		log.Fatalf("main(): Failed to dial GRPC.")
 		return
 	}
 
+	spamDetector, err := by.LoadModelFromFile("model.by")
+	if err != nil {
+		log.Fatalf("main(): Failed to load spam detection model %v", err)
+	}
+
+	consumerConfig := kafka.ConsumerConfig{
+		DbManager:      main,
+		GrpcServerConn: grpcServerConn,
+		SpamDetector:   &spamDetector,
+	}
+
 	// Utilizes goroutines to create concurrent Kafka Consumers.
-	go consumerFactory(main, grpcServerConn, kafkaURL, groupID)
+	go consumerFactory(consumerConfig, kafkaURL, groupID)
 
 	// Grabs an instance of our Gin server, passing the kafkaURL.
 	// Gin server requires the KafkaURL so that it can create
@@ -117,27 +129,27 @@ func main() {
 }
 
 // Utilizes goroutines to create concurrent Kafka Consumers.
-func consumerFactory(main db.DBManager, grpcServerConn *grpc.ClientConn, kafkaURL string, groupID string) {
+func consumerFactory(config kafka.ConsumerConfig, kafkaURL string, groupID string) {
 	addChannel := make(chan int, CONSUMERS_PER_TOPIC)
 	deleteChannel := make(chan int, CONSUMERS_PER_TOPIC)
 	scrapeChannel := make(chan int, CONSUMERS_PER_TOPIC)
-	go consumerManager(addChannel, main, grpcServerConn, kafkaURL, kafka.ADD_TOPIC, groupID)
-	go consumerManager(deleteChannel, main, grpcServerConn, kafkaURL, kafka.DELETE_TOPIC, groupID)
-	go consumerManager(scrapeChannel, main, grpcServerConn, kafkaURL, kafka.SCRAPE_TOPIC, groupID)
+	go consumerManager(addChannel, config, kafkaURL, kafka.ADD_TOPIC, groupID)
+	go consumerManager(deleteChannel, config, kafkaURL, kafka.DELETE_TOPIC, groupID)
+	go consumerManager(scrapeChannel, config, kafkaURL, kafka.SCRAPE_TOPIC, groupID)
 }
 
 // Utilizes channels to maintain a set number of consumers per topic.
 // Will wait 5 minutes prior to respawning a consumer.
-func consumerManager(ch chan int, main db.DBManager, grpcServerConn *grpc.ClientConn, kafkaURL string, topic string, groupID string) {
+func consumerManager(ch chan int, config kafka.ConsumerConfig, kafkaURL string, topic string, groupID string) {
 	for i := 0; i < CONSUMERS_PER_TOPIC; i++ {
-		go kafka.SpawnConsumer(ch, main, grpcServerConn, kafkaURL, topic, groupID)
+		go kafka.SpawnConsumer(ch, config, kafkaURL, topic, groupID)
 	}
 	for {
 		<-ch
 		log.Printf("Spawning new consumer in 5 minutes...")
 		go func() {
 			time.Sleep(time.Second * time.Duration(300))
-			go kafka.SpawnConsumer(ch, main, grpcServerConn, kafkaURL, topic, groupID)
+			go kafka.SpawnConsumer(ch, config, kafkaURL, topic, groupID)
 		}()
 	}
 }
