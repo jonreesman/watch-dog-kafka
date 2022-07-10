@@ -56,12 +56,12 @@ func LoadModelFromFile(modelFile string) (c SpamDetector, err error) {
 	if err != nil {
 		return c, err
 	}
-	if c.Classifier.IsTfIdf() == false {
+	/*if c.Classifier.IsTfIdf() == false {
 		c.Classifier.ConvertTermsFreqToTfIdf()
 		if c.Classifier.IsTfIdf() == false {
 			log.Fatal("Failed to vectorize model")
 		}
-	}
+	}*/
 
 	return c, nil
 }
