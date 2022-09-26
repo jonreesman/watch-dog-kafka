@@ -1,0 +1,9 @@
+.vscode
+mysql
+py
+reddit
+__debug__bin
+.gitignore
+createTopics.sh
+docker-compose.yml
+README.md
