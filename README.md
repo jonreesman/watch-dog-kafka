@@ -1,5 +1,5 @@
 # watch-dog - Kafka Edition
-The purpose of this project is to scrape twitter, reddit, and various news sources on an hourly basis in order to provide the user with a regular sentiment analysis for their chosen stock/crypto tickers. It has an accompanying Next.js based frontend located [here.](https://github.com/jonreesman/watch-dog-next) You can find a live demo of my own instance [here.](https://watch-dog.jonreesman.dev).
+The purpose of this project is to scrape twitter, reddit, and various news sources on an hourly basis in order to provide the user with a regular sentiment analysis for their chosen stock/crypto tickers. It has an accompanying Next.js based frontend located [here.](https://github.com/jonreesman/watch-dog-next) You can normally find a live demo of my own instance [here.](https://watch-dog.jonreesman.dev). However, I am presently out of the country for a prolonged period of time, so I have it temporarily down to save money.
 
 There is a deprecated React Native version listed [here](https://github.com/jonreesman/watch-dog-react). The original, non event-driven approach, is located [here.](https://github.com/jonreesman/watch-dog)
 
