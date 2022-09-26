@@ -22,3 +22,22 @@ func TestTwitterScrapeRange(t *testing.T) {
 	fmt.Println("Number of tweets: " + strconv.Itoa(len(statements)))
 	fmt.Println("minTime: " + time.Unix(minTime, 0).String() + " maxTime: " + time.Unix(maxTime, 0).String())
 }
+
+func TestTwitterScrapeProfile(t *testing.T) {
+	statements := TwitterScrapeProfile("AMD", 0)
+	for i, tweet := range statements {
+		fmt.Printf("%d: ", i)
+		fmt.Println(tweet)
+	}
+	fmt.Println("Number of tweets: " + strconv.Itoa(len(statements)))
+
+}
+func TestTwitterScrape(t *testing.T) {
+	statements := TwitterScrape("AMD", 0)
+	for i, tweet := range statements {
+		fmt.Printf("%d: ", i)
+		fmt.Println(tweet)
+	}
+	fmt.Println("Number of tweets: " + strconv.Itoa(len(statements)))
+
+}

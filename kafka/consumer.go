@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jonreesman/watch-dog-kafka/by"
+	"github.com/jonreesman/watch-dog-kafka/cleaner"
 	"github.com/jonreesman/watch-dog-kafka/db"
 	kafka "github.com/segmentio/kafka-go"
 	"google.golang.org/grpc"
@@ -26,6 +27,7 @@ type ConsumerConfig struct {
 	DbManager      db.DBManager
 	GrpcServerConn *grpc.ClientConn
 	SpamDetector   *by.SpamDetector
+	Cleaner        *cleaner.Cleaner
 }
 
 // Returns a Kafka reader for a specific topic and group
@@ -119,6 +121,8 @@ func SpawnConsumer(ch chan int, config ConsumerConfig, kafkaURL string, topic st
 			lastScrapeTime = 0
 		}
 		t.scrape(lastScrapeTime)
+		t.spamProcessor(&config)
+		t.computeHourlySentiment()
 		t.pushToDb()
 		t = ticker{}
 	}

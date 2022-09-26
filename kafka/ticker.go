@@ -52,7 +52,7 @@ func (t ticker) pushToDb() {
 	tx := db.BeginTx()
 	for _, tw := range t.Tweets {
 		fmt.Println("added statement to DB for:", tw.Subject)
-		db.AddStatements(tx, t.Id, tw.Expression, tw.TimeStamp, tw.Polarity, tw.PermanentURL, tw.ID, tw.Likes, tw.Replies, tw.Retweets)
+		db.AddStatements(tx, t.Id, tw.Expression, tw.TimeStamp, tw.Polarity, tw.PermanentURL, tw.ID, tw.Likes, tw.Replies, tw.Retweets, tw.Spam)
 	}
 	if err := tx.Commit(); err != nil {
 		log.Printf("Error pushing %s tweets to DB: %v", t.Name, err)
@@ -67,7 +67,18 @@ func (t *ticker) scrape(lastScrapeTime int64) {
 	t.Tweets = twitter.TwitterScrape(t.Name, lastScrapeTime)
 	t.numTweets = len(t.Tweets)
 	t.LastScrapeTime = time.Now()
-	t.computeHourlySentiment()
+}
+
+func (t *ticker) spamProcessor(config *ConsumerConfig) {
+	for _, tweet := range t.Tweets {
+		cleaned := config.Cleaner.CleanText(tweet.Expression)
+		score, _, _ := config.SpamDetector.Classifier.ProbScores(cleaned)
+		if score[0] > score[1] {
+			tweet.Spam = false
+		} else {
+			tweet.Spam = true
+		}
+	}
 }
 
 // Utilizes GRPC to communicate with our Python ancillary that performs

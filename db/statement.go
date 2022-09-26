@@ -9,8 +9,8 @@ import (
 )
 
 const addStatementQuery = `
-INSERT INTO statements(ticker_id, expression, time_stamp, polarity, url, tweet_id, likes, replies, retweets) ` +
-	`VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+INSERT INTO statements(ticker_id, expression, time_stamp, polarity, url, tweet_id, likes, replies, retweets, spam) ` +
+	`VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 // Adds a single tweet to the statement table of the database.
 func (dbManager DBManager) AddStatement(tickerId int, expression string, timeStamp int64, polarity float64, url string, tweet_id uint64, likes, replies, retweets int) {
@@ -31,7 +31,7 @@ func (dbManager DBManager) AddStatement(tickerId int, expression string, timeSta
 }
 
 // Adds a single tweet to the statement table of the database.
-func (dbManager DBManager) AddStatements(t *sql.Tx, tickerId int, expression string, timeStamp int64, polarity float64, url string, tweet_id uint64, likes, replies, retweets int) {
+func (dbManager DBManager) AddStatements(t *sql.Tx, tickerId int, expression string, timeStamp int64, polarity float64, url string, tweet_id uint64, likes, replies, retweets int, spam bool) {
 	_, err := t.Exec(addStatementQuery,
 		tickerId,
 		expression,
@@ -42,6 +42,7 @@ func (dbManager DBManager) AddStatements(t *sql.Tx, tickerId int, expression str
 		likes,
 		replies,
 		retweets,
+		spam,
 	)
 	if err != nil {
 		log.Print("Error in addStatements(): ", err)

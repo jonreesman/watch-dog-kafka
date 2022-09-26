@@ -12,6 +12,7 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/jonreesman/watch-dog-kafka/by"
+	"github.com/jonreesman/watch-dog-kafka/cleaner"
 	"github.com/jonreesman/watch-dog-kafka/db"
 	"github.com/jonreesman/watch-dog-kafka/kafka"
 	"google.golang.org/grpc"
@@ -97,10 +98,13 @@ func main() {
 		log.Fatalf("main(): Failed to load spam detection model %v", err)
 	}
 
+	cleaner := cleaner.NewCleaner()
+
 	consumerConfig := kafka.ConsumerConfig{
 		DbManager:      main,
 		GrpcServerConn: grpcServerConn,
 		SpamDetector:   &spamDetector,
+		Cleaner: 		cleaner,
 	}
 
 	// Utilizes goroutines to create concurrent Kafka Consumers.

@@ -52,7 +52,7 @@ func TestAddStatements(t *testing.T) {
 	tx := d.BeginTx()
 	for i := 0; i < 500; i++ {
 		s := randomStatement()
-		d.AddStatements(tx, id, s.Expression, s.TimeStamp, s.Polarity, s.PermanentURL, s.ID, s.Likes, s.Replies, s.Retweets)
+		d.AddStatements(tx, id, s.Expression, s.TimeStamp, s.Polarity, s.PermanentURL, s.ID, s.Likes, s.Replies, s.Retweets, false)
 	}
 	if err := tx.Commit(); err != nil {
 		log.Fatal(err)
