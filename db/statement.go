@@ -32,6 +32,7 @@ func (dbManager DBManager) AddStatement(tickerId int, expression string, timeSta
 
 // Adds a single tweet to the statement table of the database.
 func (dbManager DBManager) AddStatements(t *sql.Tx, tickerId int, expression string, timeStamp int64, polarity float64, url string, tweet_id uint64, likes, replies, retweets int, spam bool) {
+	log.Println("Adding statement....")
 	_, err := t.Exec(addStatementQuery,
 		tickerId,
 		expression,
@@ -58,7 +59,7 @@ func (dbManager DBManager) BeginTx() *sql.Tx {
 }
 
 const returnAllStatementsQuery = `
-SELECT time_stamp, expression, url, polarity, tweet_id, likes, replies, retweets ` +
+SELECT time_stamp, expression, url, polarity, tweet_id, likes, replies, retweets, spam ` +
 	`FROM statements WHERE ticker_id=? ` +
 	`ORDER BY time_stamp DESC`
 
@@ -83,7 +84,7 @@ func (dbManager DBManager) ReturnAllStatements(id int, fromTime int64) []twitter
 		if rows.Err() != nil {
 			log.Printf("ReturnAllStatements(): %v", rows.Err())
 		}
-		if err := rows.Scan(&statement.TimeStamp, &statement.Expression, &statement.PermanentURL, &statement.Polarity, &statement.ID, &likes, &replies, &retweets); err != nil {
+		if err := rows.Scan(&statement.TimeStamp, &statement.Expression, &statement.PermanentURL, &statement.Polarity, &statement.ID, &likes, &replies, &retweets, &statement.Spam); err != nil {
 			log.Printf("ReturnAllStatements(): Error in rows.Scan() for ticker %d: %v", id, err)
 		}
 		if statement.TimeStamp < fromTime {

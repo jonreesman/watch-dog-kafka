@@ -1,4 +1,4 @@
-package kafka
+package consumer
 
 import (
 	"log"
@@ -22,8 +22,6 @@ func TestSpawnConsumer(t *testing.T) {
 	grpcHost := os.Getenv("GRPC_HOST")
 
 	// Kafka environment variables.
-	kafkaURL := os.Getenv("kafkaURL")
-	groupID := os.Getenv("groupID")
 	main, err := db.NewManager(dbUser, dbPwd, dbName, dbMasterURL)
 	if err != nil {
 		log.Fatalf("Error Opening DB connection in NewServer(): %v", err)
@@ -48,11 +46,11 @@ func TestSpawnConsumer(t *testing.T) {
 		Cleaner:        cleaner,
 	}
 
-	ProducerHandler(nil, kafkaURL, SCRAPE_TOPIC, "AMD")
-	ProducerHandler(nil, kafkaURL, SCRAPE_TOPIC, "AAPL")
-	ProducerHandler(nil, kafkaURL, SCRAPE_TOPIC, "AMC")
+	addChannel := make(chan []string, 5)
+	ProducerHandler(nil, addChannel, SCRAPE_TOPIC, "AMD")
+	ProducerHandler(nil, addChannel, SCRAPE_TOPIC, "AAPL")
+	ProducerHandler(nil, addChannel, SCRAPE_TOPIC, "AMC")
 
-	addChannel := make(chan int, 5)
-	SpawnConsumer(addChannel, consumerConfig, kafkaURL, SCRAPE_TOPIC, groupID)
+	SpawnConsumer(addChannel, consumerConfig)
 
 }

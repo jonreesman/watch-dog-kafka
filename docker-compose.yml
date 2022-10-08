@@ -1,45 +1,6 @@
 version: "3"
 
 services:
-  # Kafka (Zookeeper)
-  zookeeper:
-    image: confluentinc/cp-zookeeper:latest
-    hostname: zookeeper
-    ports:
-      - "2182:2182"
-    volumes:
-      - zookeeper_data:/confluentinc
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2182
-      ZOOKEEPER_TICK_TIME: 2000
-    networks:
-      - kafka-net
-    platform: linux/amd64
-
-  kafka:
-    # Variables
-    # - KAFKA_HOST: used to override Kafka Host, defaults to localhost.
-    #   - usage KAFKA_HOST=[hostName | IP Address] docker-compose up kafka
-    image: confluentinc/cp-enterprise-kafka:latest
-    hostname: kafka
-    depends_on:
-      - zookeeper
-    ports:
-      - "9093:9093"
-    volumes:
-      - kafka_data:/confluentinc
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2182"
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9093
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-    networks:
-      - kafka-net
-    restart: on-failure
-    platform: linux/amd64
-
   mysql-master:
       image: mysql:8.0
       container_name: mysql-master
@@ -78,7 +39,6 @@ services:
     container_name: wdk
     environment:
       kafkaURL: wdk-kafka-1:9093
-      groupID: demo
       GRPC_HOST: wdk-server:9999
       DB_MASTER: mysql-master:3306
       DB_SLAVE: mysql-master:3306
@@ -90,10 +50,8 @@ services:
     networks:
       - wdk
       - mysql
-      - kafka-net
     depends_on:
       - wdk-server
-      - kafka
     platform: linux/amd64
 
   wdk-server:
@@ -105,43 +63,9 @@ services:
       - wdk
     platform: linux/amd64
 
-  mongo:
-    image: mongo
-    restart: unless-stopped
-    networks: 
-      - db
-    volumes: 
-      - mongo:/data/db
-  
-  proxy:
-    image: virtualzone/jwt-auth-proxy
-    restart: unless-stopped
-    ports: 
-      - 8080:8080
-    networks: 
-      - wdk
-      - db
-    volumes: 
-      - certs:/app/certs
-    environment: 
-      MONGO_DB_URL: mongodb://mongo:27017
-      PROXY_TARGET: http://wdk:3100
-      PROXY_BLACKLIST: /auth/
-
-
 
 networks:
-  kafka-net:
   wdk:
   db:
   mysql:
 
-volumes:
-  zookeeper_data:
-    driver: local
-  kafka_data:
-    driver: local
-  certs:
-    driver: local
-  mongo:
-    driver: local

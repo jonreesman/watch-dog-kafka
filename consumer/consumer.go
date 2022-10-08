@@ -1,12 +1,10 @@
-package kafka
+package consumer
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/jonreesman/watch-dog-kafka/by"
 	"github.com/jonreesman/watch-dog-kafka/cleaner"
@@ -45,14 +43,11 @@ func getKafkaReader(kafkaURL, topic, groupID string) *kafka.Reader {
 // Defines our consumer goroutine. Retrieves a Kafka Reader for its topic,
 // grabs a connection to the master database, and listes to the topic
 // for events. It can handle the logic for deletions, additions, and scrapes.
-func SpawnConsumer(ch chan int, config ConsumerConfig, kafkaURL string, topic string, groupID string) {
-	fmt.Printf("Spawning consumer on topic %s\n", topic)
-	reader := getKafkaReader(kafkaURL, topic, groupID)
+func SpawnConsumer(ch chan []string, config ConsumerConfig) {
 	d := config.DbManager
-	defer reader.Close()
 	for {
-		m, err := reader.ReadMessage(context.Background())
-		if err != nil {
+		m := <-ch
+		/*if err != nil {
 			log.Printf("SpawnConsumer(): %v", err)
 			sleepTime := 30
 			if err.Error() == kafka.BrokerNotAvailable.Error() {
@@ -65,21 +60,21 @@ func SpawnConsumer(ch chan int, config ConsumerConfig, kafkaURL string, topic st
 			fmt.Printf("Consumer resuming...")
 			reader = getKafkaReader(kafkaURL, topic, groupID)
 			continue
-		}
-		fmt.Printf("message at topic:%v partition:%v offset:%v	%s = %s\n", m.Topic, m.Partition, m.Offset, string(m.Key), string(m.Value))
-		if m.Value == nil {
+		}*/
+		fmt.Printf("message at topic:%v = %s\n", m[1], m[0])
+		if m == nil {
 			log.Printf("message value nil. continuing")
 			continue
 		}
 		t := ticker{
-			Name: string(m.Value),
+			Name: m[0],
 			db:   d,
 		}
 
 		// If the consumer is a `delete` consumer, it'll exclusively
 		// execute this logic. It simply issues a MySQL query to
 		// set active to 0 so that no scraping occurs for that ticker.
-		if m.Topic == DELETE_TOPIC {
+		if m[1] == DELETE_TOPIC {
 			id, err := strconv.Atoi(t.Name)
 			if err != nil {
 				log.Printf("Consumer: Failed to convert id from string to int: %v", err)
@@ -91,7 +86,8 @@ func SpawnConsumer(ch chan int, config ConsumerConfig, kafkaURL string, topic st
 			continue
 		}
 
-		if m.Topic == ADD_TOPIC {
+		var err error
+		if m[1] == ADD_TOPIC {
 			t.Id, err = d.AddTicker(t.Name)
 			if err != nil {
 				if err.Error() == "ticker active" {
@@ -103,7 +99,7 @@ func SpawnConsumer(ch chan int, config ConsumerConfig, kafkaURL string, topic st
 			}
 		}
 
-		if m.Topic == SCRAPE_TOPIC {
+		if m[1] == SCRAPE_TOPIC {
 			t.Id, err = d.RetrieveTickerIDByName(t.Name)
 			if err != nil {
 				log.Printf("SpawnWorker(); Could not find ticker with name %s: %v", t.Name, err)

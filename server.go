@@ -15,30 +15,30 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/jonreesman/watch-dog-kafka/consumer"
 	"github.com/jonreesman/watch-dog-kafka/db"
-	"github.com/jonreesman/watch-dog-kafka/kafka"
 	"github.com/jonreesman/watch-dog-kafka/pb"
 )
 
 type Server struct {
-	d              db.DBManager
-	router         *gin.Engine
-	grpcServerConn *grpc.ClientConn
-	kafkaURL       string
+	d               db.DBManager
+	router          *gin.Engine
+	grpcServerConn  *grpc.ClientConn
+	consumerChannel chan []string
 }
 
 // Creates and returns a server instance to main.
 // This server struct contains an instance of our
 // database manager, the Gin router, and the kafkaURL
 // so that it can produce messages in our Kafk topics.
-func NewServer(db db.DBManager, grpcServerConn *grpc.ClientConn, kafkaURL string) (*Server, error) {
+func NewServer(db db.DBManager, grpcServerConn *grpc.ClientConn, consumerChannel chan []string) (*Server, error) {
 	var (
 		s Server
 	)
+	s.consumerChannel = consumerChannel
 	s.d = db
 	s.router = gin.Default()
 	s.router.Use(cors.Default())
-	s.kafkaURL = kafkaURL
 	s.grpcServerConn = grpcServerConn
 
 	// Basic routing to generate our REST API handlers.
@@ -92,7 +92,7 @@ func (server Server) newTickerHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"Id:": 0, "Name": "None"})
 	}
 
-	kafka.ProducerHandler(c, server.kafkaURL, kafka.ADD_TOPIC, sanitizedTicker)
+	consumer.ProducerHandler(c, server.consumerChannel, consumer.ADD_TOPIC, sanitizedTicker)
 }
 
 // Returns only active tickers when called with a GET request.
@@ -234,5 +234,5 @@ func (server Server) deactivateTickerHandler(c *gin.Context) {
 		return
 	}
 
-	kafka.ProducerHandler(c, server.kafkaURL, kafka.DELETE_TOPIC, strconv.Itoa(id))
+	consumer.ProducerHandler(c, server.consumerChannel, consumer.DELETE_TOPIC, strconv.Itoa(id))
 }
