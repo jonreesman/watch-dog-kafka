@@ -50,6 +50,7 @@ func run(db db.DBManager, consumerChannel chan []string) error {
 func main() {
 	// Grab all our environment variables.
 	// Database environment variables.
+	log.Printf("Starting watch-dog.")
 	dbUser := os.Getenv("DB_USER")
 	dbPwd := os.Getenv("DB_PWD")
 	dbName := os.Getenv("DB_NAME")
