@@ -81,7 +81,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error Opening DB connection in NewServer(): %v", err)
 	}
-	log.Printf("Connected.\nConnecting to gRPC server...")
+	log.Printf("Connected.\nConnecting to gRPC server at %s...", grpcHost)
 
 	grpcServerConn, err := grpc.Dial(grpcHost, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	if err != nil {
