@@ -8,7 +8,6 @@ import (
 	"syscall"
 	"time"
 
-	"net/http"
 	_ "net/http/pprof"
 
 	"github.com/jonreesman/watch-dog-kafka/by"
@@ -50,7 +49,7 @@ func run(db db.DBManager, consumerChannel chan []string) error {
 func main() {
 	// Grab all our environment variables.
 	// Database environment variables.
-	log.Printf("Starting watch-dog.")
+	log.Printf("Starting")
 	dbUser := os.Getenv("DB_USER")
 	dbPwd := os.Getenv("DB_PWD")
 	dbName := os.Getenv("DB_NAME")
@@ -69,24 +68,27 @@ func main() {
 	}
 
 	// Set up our pprof server
-	go func() {
+	/*go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
-
+	}()*/
+	log.Printf("Connecting to database...\n")
 	main, err := db.NewManager(dbUser, dbPwd, dbName, dbMasterURL)
 	if err != nil {
 		log.Fatalf("Error Opening DB connection in NewServer(): %v", err)
 	}
+	log.Printf("Connecting to replica database...\n")
 	replica, err := db.NewManager(dbUser, dbPwd, dbName, dbSlaveURL)
 	if err != nil {
 		log.Fatalf("Error Opening DB connection in NewServer(): %v", err)
 	}
+	log.Printf("Connected.\nConnecting to gRPC server...")
+
 	grpcServerConn, err := grpc.Dial(grpcHost, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	if err != nil {
 		log.Fatalf("main(): Failed to dial GRPC.")
 		return
 	}
-
+	log.Printf("Connected.\n Loading spam detection model...")
 	spamDetector, err := by.LoadModelFromFile("model.by")
 	if err != nil {
 		log.Fatalf("main(): Failed to load spam detection model %v", err)
@@ -101,6 +103,7 @@ func main() {
 		Cleaner:        cleaner,
 	}
 
+	log.Printf("Spawning consumers...\n")
 	consumerChannel := make(chan []string, CONSUMERS)
 	for i := 0; i < CONSUMERS; i++ {
 		go consumer.SpawnConsumer(consumerChannel, consumerConfig)
@@ -114,6 +117,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	log.Printf("Starting webserver...\n")
 	// Fails and aborts if the Gin server fails to launch,
 	// since there is no reason to run without the API.
 	go s.startServer()
