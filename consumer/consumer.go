@@ -118,7 +118,10 @@ func SpawnConsumer(ch chan []string, config ConsumerConfig) {
 		}
 		t.scrape(lastScrapeTime)
 		t.spamProcessor(&config)
-		t.computeHourlySentiment()
+		if err := t.computeHourlySentiment(); err != nil {
+			log.Printf("consumer(): %v\n", err)
+			continue
+		}
 		t.pushToDb()
 		t = ticker{}
 	}

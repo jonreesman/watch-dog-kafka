@@ -2,6 +2,7 @@ package consumer
 
 import (
 	"context"
+	"errors"
 
 	"fmt"
 	"log"
@@ -83,7 +84,7 @@ func (t *ticker) spamProcessor(config *ConsumerConfig) {
 
 // Utilizes GRPC to communicate with our Python ancillary that performs
 // sentiment analysis on the tweets for a given ticker.
-func (t *ticker) computeHourlySentiment() {
+func (t *ticker) computeHourlySentiment() error {
 	var total float64
 	client := pb.NewSentimentClient(t.grpcServerConn)
 	for i, s := range t.Tweets {
@@ -93,6 +94,7 @@ func (t *ticker) computeHourlySentiment() {
 		response, err := client.Detect(context.Background(), &request)
 		if err != nil {
 			log.Printf("GRPC SentimentRequest: %v", err)
+			return errors.New("failed to reach GRPC Server...")
 		}
 		t.Tweets[i].Polarity = float64(response.Polarity)
 		total += float64(response.Polarity)
@@ -101,4 +103,5 @@ func (t *ticker) computeHourlySentiment() {
 	if total == 0 || t.numTweets == 0 {
 		t.HourlySentiment = 0
 	}
+	return nil
 }
