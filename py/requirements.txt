@@ -1,5 +1,6 @@
 grpcio==1.49.1
-protobuf==4.21.1
+protobuf==4.21.7
 pydantic==1.9.0
 textblob==0.17.1
 yfinance==0.1.70
+google-auth==2.12.0
