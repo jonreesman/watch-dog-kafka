@@ -49,8 +49,8 @@ if __name__ == "__main__":
     server = grpc.server(ThreadPoolExecutor())
     add_SentimentServicer_to_server(SentimentServer() ,server)
     add_QuotesServicer_to_server(QuotesServer() , server)
-    port = 9999
-    #server.add_insecure_port(f'[::]:{port}')
+    port = 443
+    server.add_insecure_port(f'0.0.0.0:{port}')
     server.start()
     logging.info('server reads on port %r', port)
     server.wait_for_termination()
