@@ -9,6 +9,10 @@ from textblob import TextBlob
 from google.protobuf.timestamp_pb2 import Timestamp
 import yfinance as yf
 
+from google import auth as google_auth
+from google.auth.transport import grpc as google_auth_transport_grpc
+from google.auth.transport import requests as google_auth_transport_requests
+
 from watchdog_pb2 import SentimentResponse
 from watchdog_pb2 import QuoteResponse
 from watchdog_pb2_grpc import SentimentServicer, add_SentimentServicer_to_server
@@ -50,7 +54,18 @@ if __name__ == "__main__":
     add_SentimentServicer_to_server(SentimentServer() ,server)
     add_QuotesServicer_to_server(QuotesServer() , server)
     port = 9999
-    server.add_insecure_port(f'[::]:{port}')
+    with open("server.key", "rb") as fp:
+        server_key = fp.read()
+    with open("server.pem", "rb") as fp:
+        server_cert = fp.read()
+
+    credentials, _ = google_auth.default()
+    request = google_auth_transport_requests.Request()
+    #channel = google_auth_transport_grpc.secure_authorized_channel(
+    #credentials, request, 'greeter.googleapis.com:443')
+    #server.add_insecure_port(f'[::]:{port}')
+    #creds = grpc.ssl_server_credentials([(server_key, server_cert)])
+    server.add_secure_port(f"[::]:9999", credentials)
     server.start()
     logging.info('server reads on port %r', port)
     server.wait_for_termination()
