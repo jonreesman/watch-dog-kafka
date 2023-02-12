@@ -3,7 +3,6 @@ import math
 from concurrent.futures import ThreadPoolExecutor
 
 import grpc
-from pydantic import BaseModel
 from textblob import TextBlob 
 
 from google.protobuf.timestamp_pb2 import Timestamp
