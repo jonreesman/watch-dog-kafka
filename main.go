@@ -81,11 +81,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error Opening DB connection in NewServer(): %v", err)
 	}
-	log.Printf("Connected.\nConnecting to gRPC server at %s...", grpcHost)
+	log.Printf("Connected.\n")
+	log.Printf("Connecting to gRPC server at %s...", grpcHost)
 
-	grpcServerConn, err := grpc.Dial(grpcHost, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	grpcServerConn, err := grpc.Dial(grpcHost, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.FailOnNonTempDialError(true), grpc.WithBlock())
 	if err != nil {
-		log.Fatalf("main(): Failed to dial GRPC.")
+		log.Fatalf("main(): Failed to dial GRPC. %v", err)
 		return
 	}
 	log.Printf("Connected.\n Loading spam detection model...")
